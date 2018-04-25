@@ -29,6 +29,7 @@ import org.geoserver.catalog.AttributeTypeInfo;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.ResourcePool;
+import org.geoserver.catalog.impl.LocalWorkspaceCatalog;
 import org.geoserver.feature.TypeNameExtractingVisitor;
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Request;
@@ -235,7 +236,8 @@ public class GetFeature {
 
         //stored queries, preprocess compile any stored queries into actual query objects
         processStoredQueries(request);
-        queries = request.getQueries();
+        // resolve empty prefix QNnames to local workspace
+        queries = resolveLocalWorkspaceNS(request.getQueries());
         
         if (request.isQueryTypeNamesUnset()) {
             //do a check for FeatureId filters in the queries and update the type names for the 
@@ -1326,4 +1328,29 @@ O:      for (String propName : query.getPropertyNames()) {
         
         return properties;
     }
+    
+    protected List<Query> resolveLocalWorkspaceNS(List<Query> origin){
+        if(!(catalog instanceof LocalWorkspaceCatalog)){
+            return origin;
+        }
+        final LocalWorkspaceCatalog localCatalog = (LocalWorkspaceCatalog) catalog;
+        final String wfsNS = "http://www.opengis.net/wfs";
+        for(Query q : origin){
+            List<QName> names = new ArrayList<>();
+            for(QName n: q.getTypeNames()){
+                // if is using default wfs namespace, resolve local workspace namespace
+                if(wfsNS.equals(n.getNamespaceURI())){
+                    QName newName = new QName(localCatalog.getDefaultNamespace().getURI(), n.getLocalPart(),
+                            localCatalog.getDefaultWorkspace().getName());
+                    names.add(newName);
+                }
+                else {
+                    names.add(n);
+                }
+            }
+            q.setTypeNames(names);
+        }
+        return origin;
+    }
+    
 }
