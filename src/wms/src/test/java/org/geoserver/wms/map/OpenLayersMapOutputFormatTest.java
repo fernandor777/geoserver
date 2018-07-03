@@ -110,6 +110,7 @@ public class OpenLayersMapOutputFormatTest extends WMSTestSupport {
 
         GetMapRequest request = createGetMapRequest(MockData.BASIC_POLYGONS);
         request.getRawKvp().put("</script><script>alert('x-scripted');</script><script>", "foo");
+        request.getRawKvp().put("25064;ALERT(1)//419", "1");
         final WMSMapContent map = new WMSMapContent();
         map.getViewport().setBounds(new ReferencedEnvelope(env, DefaultGeographicCRS.WGS84));
         map.setMapWidth(300);
@@ -134,6 +135,11 @@ public class OpenLayersMapOutputFormatTest extends WMSTestSupport {
                         .replace("\\r", "")
                         .indexOf(
                                 "\"</script\\><script\\>alert(\\'x-scripted\\');</script\\><script\\>\": 'foo'");
+        assertTrue(index > -1);
+        index =
+                htmlDoc.replace("\\n", "")
+                        .replace("\\r", "")
+                        .indexOf("\"25064;ALERT(1)//419\": '1'");
         assertTrue(index > -1);
     }
 
@@ -322,6 +328,61 @@ public class OpenLayersMapOutputFormatTest extends WMSTestSupport {
         String htmlDoc = new String(bos.toByteArray(), "UTF-8");
         int index = htmlDoc.indexOf("yx : {'EPSG:4326' : true}\n");
 
+        assertTrue(index > -1);
+    }
+
+    /**
+     * Tests parameters escape on openlayers 3
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testXssOL3() throws Exception {
+
+        Catalog catalog = getCatalog();
+        final FeatureSource fs =
+                catalog.getFeatureTypeByName(
+                                MockData.BASIC_POLYGONS.getPrefix(),
+                                MockData.BASIC_POLYGONS.getLocalPart())
+                        .getFeatureSource(null, null);
+
+        final Envelope env = fs.getBounds();
+
+        LOGGER.info("about to create map ctx for BasicPolygons with bounds " + env);
+
+        GetMapRequest request = createGetMapRequest(MockData.BASIC_POLYGONS);
+        request.getRawKvp().put("</script><script>alert('x-scripted');</script><script>", "foo");
+        request.getRawKvp().put("25064;ALERT(1)//419", "1");
+        final WMSMapContent map = new WMSMapContent();
+        map.getViewport().setBounds(new ReferencedEnvelope(env, DefaultGeographicCRS.WGS84));
+        map.setMapWidth(300);
+        map.setMapHeight(300);
+        map.setBgColor(Color.red);
+        map.setTransparent(false);
+        map.setRequest(request);
+
+        StyleInfo styleByName = catalog.getStyleByName("Default");
+        Style basicStyle = styleByName.getStyle();
+        FeatureLayer layer = new FeatureLayer(fs, basicStyle);
+        layer.setTitle("Title");
+        map.addLayer(layer);
+        request.setFormat("application/openlayers");
+        request.getFormatOptions().put(OpenLayersMapOutputFormat.ENABLE_OL3, Boolean.TRUE.toString());
+        RawMap rawMap = this.mapProducer.produceMap(map);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        rawMap.writeTo(bos);
+        String htmlDoc = new String(bos.toByteArray(), "UTF-8");
+        // check that weird param is correctly encoded to avoid js code execution
+        int index =
+                htmlDoc.replace("\\n", "")
+                        .replace("\\r", "")
+                        .indexOf(
+                                "\"</script\\><script\\>alert(\\'x-scripted\\');</script\\><script\\>\": 'foo'");
+        assertTrue(index > -1);
+        index =
+                htmlDoc.replace("\\n", "")
+                        .replace("\\r", "")
+                        .indexOf("\"25064;ALERT(1)//419\": '1'");
         assertTrue(index > -1);
     }
 }
