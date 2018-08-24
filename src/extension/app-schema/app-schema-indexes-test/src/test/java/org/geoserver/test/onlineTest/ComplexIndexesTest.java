@@ -1,0 +1,266 @@
+package org.geoserver.test.onlineTest;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Serializable;
+import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.logging.Level;
+
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.custommonkey.xmlunit.SimpleNamespaceContext;
+import org.custommonkey.xmlunit.XMLUnit;
+import org.custommonkey.xmlunit.XpathEngine;
+import org.geoserver.catalog.Catalog;
+import org.geoserver.catalog.CatalogBuilder;
+import org.geoserver.catalog.FeatureTypeInfo;
+import org.geoserver.catalog.LayerInfo;
+import org.geoserver.catalog.NamespaceInfo;
+import org.geoserver.catalog.StoreInfo;
+import org.geoserver.catalog.impl.DataStoreInfoImpl;
+import org.geoserver.catalog.impl.NamespaceInfoImpl;
+import org.geoserver.catalog.impl.WorkspaceInfoImpl;
+import org.geoserver.data.test.SystemTestData;
+import org.geoserver.test.GeoServerSystemTestSupport;
+import org.geoserver.util.IOUtils;
+import org.geotools.feature.NameImpl;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.w3c.dom.Document;
+
+public class ComplexIndexesTest extends GeoServerSystemTestSupport {
+    
+    // xpath engines used to check WFS responses
+    private XpathEngine WFS11_XPATH_ENGINE;
+    private XpathEngine WFS20_XPATH_ENGINE;
+    
+    private static String solrUrl;
+    private static String solrCoreName;
+    // HTTP Apache Solr client
+    private static HttpSolrClient solrClient;
+    
+    private static PostgresqlProperties pgProps;
+    
+    // test root directory
+    private static final File TESTS_ROOT_DIR = createTempDirectory("complex-indexes");
+    public static final String STATIONS_NAMESPACE= "http://www.stations.org/1.0";
+    public static final String OBSERVATIONS_MAPPING_NAME = "ObservationType-e17fbd44-fd26-46e7-bd71-e2568073c6c5";
+    public static final String STATIONS_MAPPING_NAME = "StationType-f46d72da-5591-4873-b210-5ed30a6ffb0d";
+    
+    public static final IndexesStationSetup stationSetup = new IndexesStationSetup();
+    
+    
+    @BeforeClass
+    public static void beforeClass() {
+        // load the fixture file
+        solrUrl = loadFixture().getProperty("solr_url");
+        solrCoreName = loadFixture().getProperty("solr_core");
+        // instantiate the Apache Solr client
+        solrClient = new HttpSolrClient.Builder(solrUrl).build();
+        pgProps = loadPgProperties();
+        // generate mapping and related files:
+        stationSetup.setupMapping(solrUrl, solrCoreName, pgProps, TESTS_ROOT_DIR);
+        // setup solr core
+        SolrIndexSetup indexSetup = new SolrIndexSetup(solrUrl);
+        indexSetup.init();
+    }
+    
+    
+    @Before
+    public void beforeTest() {
+        // instantiate WFS 1.1 xpath engine
+        WFS11_XPATH_ENGINE =
+                buildXpathEngine(
+                        "wfs", "http://www.opengis.net/wfs",
+                        "gml", "http://www.opengis.net/gml");
+        // instantiate WFS 2.0 xpath engine
+        WFS20_XPATH_ENGINE =
+                buildXpathEngine(
+                        "wfs", "http://www.opengis.net/wfs/2.0",
+                        "gml", "http://www.opengis.net/gml/3.2");
+    }
+
+    @AfterClass
+    public static void tearDown() {
+        try {
+            // remove tests root directory
+            IOUtils.delete(TESTS_ROOT_DIR);
+        } catch (Exception exception) {
+            LOGGER.log(Level.WARNING, "Error removing tests root directory.", exception);
+        }
+    }
+    
+    /**
+     * Helper method that builds a XPATH engine using the base namespaces (ow, ogc, etc ...), all
+     * the namespaces available in the GeoServer catalog and the provided extra namespaces.
+     */
+    private XpathEngine buildXpathEngine(String... extraNamespaces) {
+        // build xpath engine
+        XpathEngine xpathEngine = XMLUnit.newXpathEngine();
+        Map<String, String> namespaces = new HashMap<>();
+        // add common namespaces
+        namespaces.put("ows", "http://www.opengis.net/ows");
+        namespaces.put("ogc", "http://www.opengis.net/ogc");
+        namespaces.put("xs", "http://www.w3.org/2001/XMLSchema");
+        namespaces.put("xsd", "http://www.w3.org/2001/XMLSchema");
+        namespaces.put("xlink", "http://www.w3.org/1999/xlink");
+        namespaces.put("xsi", "http://www.w3.org/2001/XMLSchema-instance");
+        // add catalog namespaces
+        for (NamespaceInfo namespace : getCatalog().getNamespaces()) {
+            namespaces.put(namespace.getPrefix(), namespace.getURI());
+        }
+        // add provided namespaces
+        if (extraNamespaces.length % 2 != 0) {
+            throw new RuntimeException("Invalid number of namespaces provided.");
+        }
+        for (int i = 0; i < extraNamespaces.length; i += 2) {
+            namespaces.put(extraNamespaces[i], extraNamespaces[i + 1]);
+        }
+        // add namespaces to the xpath engine
+        xpathEngine.setNamespaceContext(new SimpleNamespaceContext(namespaces));
+        return xpathEngine;
+    }
+    
+    @Override
+    protected void onSetUp(SystemTestData testData) throws Exception {
+        super.onSetUp(testData);
+        // create necessary workspaces
+        Catalog catalog = getCatalog();
+        setupWorkspaces(catalog);
+        // create the app-schema data store
+        StoreInfo store = createAppSchemaDataStore(catalog);
+        // build the feature type for the root mapping (StationFeature)
+        buildFeatureTypes(catalog, store);
+    }
+
+    private void buildFeatureTypes(Catalog catalog, StoreInfo store) throws Exception, IOException {
+        CatalogBuilder builder = new CatalogBuilder(catalog);
+        builder.setStore(store);
+        builder.setWorkspace(catalog.getWorkspaceByName("st"));
+        // Stations
+        FeatureTypeInfo stationsFeatureType =
+                builder.buildFeatureType(new NameImpl(STATIONS_NAMESPACE, STATIONS_MAPPING_NAME));
+        catalog.add(stationsFeatureType);
+        LayerInfo stLayer = builder.buildLayer(stationsFeatureType);
+        stLayer.setDefaultStyle(catalog.getStyleByName("point"));
+        catalog.add(stLayer);
+        // Observations
+        FeatureTypeInfo obserFeatureType =
+                builder.buildFeatureType(new NameImpl(STATIONS_NAMESPACE, OBSERVATIONS_MAPPING_NAME));
+        catalog.add(obserFeatureType);
+        LayerInfo obsLayer = builder.buildLayer(obserFeatureType);
+        obsLayer.setDefaultStyle(catalog.getStyleByName("point"));
+        catalog.add(obsLayer);
+    }
+
+    private StoreInfo createAppSchemaDataStore(Catalog catalog) {
+        Map<String, Serializable> params = new HashMap<>();
+        params.put("dbtype", "app-schema");
+        params.put("url", new File(TESTS_ROOT_DIR, "mappings.xml").toURI().toString());
+        DataStoreInfoImpl dataStore = new DataStoreInfoImpl(getCatalog());
+        dataStore.setId("stations");
+        dataStore.setName("stations");
+        dataStore.setType("app-schema");
+        dataStore.setConnectionParameters(params);
+        dataStore.setWorkspace(catalog.getWorkspaceByName("st"));
+        dataStore.setEnabled(true);
+        catalog.add(dataStore);
+        return dataStore;
+    }
+
+    private void setupWorkspaces(Catalog catalog) {
+        WorkspaceInfoImpl workspace = new WorkspaceInfoImpl();
+        workspace.setName("st");
+        NamespaceInfoImpl nameSpace = new NamespaceInfoImpl();
+        nameSpace.setPrefix("st");
+        nameSpace.setURI(STATIONS_NAMESPACE);
+        catalog.add(workspace);
+        catalog.add(nameSpace);
+    }
+    
+    public static PostgresqlProperties loadPgProperties() {
+        Properties props = loadFixture();
+        PostgresqlProperties pgp = new PostgresqlProperties();
+        pgp.setHost(props.getProperty("pg_host", "localhost"));
+        pgp.setPort(props.getProperty("pg_port", "5432"));
+        pgp.setDatabase(props.getProperty("pg_database"));
+        pgp.setSchema(props.getProperty("pg_schema", "meteo"));
+        pgp.setUser(props.getProperty("pg_user"));
+        pgp.setPassword(props.getProperty("pg_password"));
+        return pgp;
+    }
+    
+    /**
+     * Try to load the fixture file associated with this tests, if the load file the tests are
+     * skipped.
+     */
+    private static Properties loadFixture() {
+        // get the fixture file path
+        File fixFile = getFixtureFile();
+        // check if the file exists
+        assumeTrue(fixFile.exists());
+        // load the fixture file properties
+        return loadFixtureProperties(fixFile);
+    }
+
+    /** Gets the fixture file for GeoServer Apache Solr integration tests. */
+    private static File getFixtureFile() {
+        File directory = new File(System.getProperty("user.home") + "/.geoserver");
+        if (!directory.exists()) {
+            // make sure parent directory exists
+            directory.mkdir();
+        }
+        return new File(directory, "solr.properties");
+    }
+    
+    /** Helper method that just loads the fixture files properties. */
+    private static Properties loadFixtureProperties(File fixtureFile) {
+        Properties properties = new Properties();
+        try (InputStream input = new FileInputStream(fixtureFile)) {
+            // load properties from fixture file
+            properties.load(input);
+            return properties;
+        } catch (Exception exception) {
+            throw new RuntimeException(
+                    String.format(
+                            "Error reading fixture file '%s'.", fixtureFile.getAbsolutePath()),
+                    exception);
+        }
+    }
+    
+    public String tempDirPath() {
+        return TESTS_ROOT_DIR.getAbsolutePath();
+    }
+    
+    /** Helper method that creates a temporary directory. */
+    public static File createTempDirectory(String dirName) {
+        try {
+            return Files.createTempDirectory(dirName).toFile();
+        } catch (Exception exception) {
+            throw new RuntimeException("Error creating temporary directory.", exception);
+        }
+    }
+    
+    /**
+     * Helper method that checks if the provided XPath expression evaluated against the provided XML
+     * document yields the expected number of matches.
+     */
+    private void checkCount(
+            XpathEngine xpathEngine, Document document, int expectedCount, String xpath) {
+        try {
+            // evaluate the xpath and compare the number of nodes found
+            assertEquals(expectedCount, xpathEngine.getMatchingNodes(xpath, document).getLength());
+        } catch (Exception exception) {
+            throw new RuntimeException("Error evaluating xpath.", exception);
+        }
+    }
+    
+}
