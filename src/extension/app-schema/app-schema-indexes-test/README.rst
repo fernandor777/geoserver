@@ -77,3 +77,11 @@ The easiest way to remove a core is using the ``solr`` binary to remove the desi
             "QTime":9}}
 
 It is highly recommended to read Apache Solr documentation related with core managements.
+
+On Windows:
+	.\bin\solr start
+	.\bin\solr delete -c stations
+	.\bin\solr create -c stations
+	
+
+

@@ -1,16 +1,15 @@
 package org.geoserver.test.onlineTest;
 
 public class PostgresqlProperties {
-    
+
     private String host;
     private String user;
     private String password;
     private String port = "5432";
     private String database;
     private String schema = "meteo";
-    
-    public PostgresqlProperties() {
-    }
+
+    public PostgresqlProperties() {}
 
     public String getHost() {
         return host;
@@ -59,7 +58,4 @@ public class PostgresqlProperties {
     public void setSchema(String schema) {
         this.schema = schema;
     }
-    
-    
-    
 }

@@ -1,14 +1,7 @@
 
-
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET idle_in_transaction_session_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SET check_function_bodies = false;
-SET client_min_messages = warning;
 SET row_security = off;
 
+DROP SCHEMA IF EXISTS meteo CASCADE;
 CREATE SCHEMA meteo;
 
 CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
@@ -66,7 +59,6 @@ CREATE TABLE meteo_stations_tags (
     tag character varying(50) NOT NULL
 );
 
-
 INSERT INTO meteo_observations (id, parameter_id, station_id, "time", value, description) VALUES (5, 2, 7, '2016-12-19 06:29:24', 80, NULL);
 INSERT INTO meteo_observations (id, parameter_id, station_id, "time", value, description) VALUES (6, 3, 7, '2016-12-19 06:30:26', 1019, NULL);
 INSERT INTO meteo_observations (id, parameter_id, station_id, "time", value, description) VALUES (7, 3, 7, '2016-12-19 06:30:51', 1015, NULL);
@@ -83,8 +75,6 @@ INSERT INTO meteo_observations_comments (id, observation_id, comment) VALUES (2,
 INSERT INTO meteo_observations_comments (id, observation_id, comment) VALUES (3, 2, 'comment1_BOL');
 INSERT INTO meteo_observations_comments (id, observation_id, comment) VALUES (4, 3, 'comment1_BOL');
 INSERT INTO meteo_observations_comments (id, observation_id, comment) VALUES (5, 3, 'comment2_BOL');
-
-SELECT pg_catalog.setval('meteo_observations_id_seq', 10, true);
 
 INSERT INTO meteo_observations_tags (id, observation_id, tag) VALUES (1, 1, 'tag1_ALS');
 INSERT INTO meteo_observations_tags (id, observation_id, tag) VALUES (2, 1, 'tag2_ALS');

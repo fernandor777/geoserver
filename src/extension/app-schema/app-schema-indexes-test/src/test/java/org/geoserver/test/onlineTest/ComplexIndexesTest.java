@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Level;
-
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.custommonkey.xmlunit.SimpleNamespaceContext;
 import org.custommonkey.xmlunit.XMLUnit;
@@ -34,30 +33,37 @@ import org.geotools.feature.NameImpl;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Test;
 import org.w3c.dom.Document;
 
 public class ComplexIndexesTest extends GeoServerSystemTestSupport {
-    
+
     // xpath engines used to check WFS responses
     private XpathEngine WFS11_XPATH_ENGINE;
     private XpathEngine WFS20_XPATH_ENGINE;
-    
+
     private static String solrUrl;
     private static String solrCoreName;
     // HTTP Apache Solr client
     private static HttpSolrClient solrClient;
-    
+
     private static PostgresqlProperties pgProps;
-    
+
     // test root directory
     private static final File TESTS_ROOT_DIR = createTempDirectory("complex-indexes");
-    public static final String STATIONS_NAMESPACE= "http://www.stations.org/1.0";
-    public static final String OBSERVATIONS_MAPPING_NAME = "ObservationType-e17fbd44-fd26-46e7-bd71-e2568073c6c5";
-    public static final String STATIONS_MAPPING_NAME = "StationType-f46d72da-5591-4873-b210-5ed30a6ffb0d";
-    
-    public static final IndexesStationSetup stationSetup = new IndexesStationSetup();
-    
-    
+    public static final String STATIONS_NAMESPACE = "http://www.stations.org/1.0";
+    public static final String OBSERVATIONS_MAPPING_NAME =
+            "ObservationType-e17fbd44-fd26-46e7-bd71-e2568073c6c5";
+    public static final String STATIONS_MAPPING_NAME =
+            "StationType-f46d72da-5591-4873-b210-5ed30a6ffb0d";
+
+    public static final StationsMappingsSetup stationSetup = new StationsMappingsSetup();
+
+    @Test
+    public void testOne() {
+        String x = "";
+    }
+
     @BeforeClass
     public static void beforeClass() {
         // load the fixture file
@@ -71,9 +77,11 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         // setup solr core
         SolrIndexSetup indexSetup = new SolrIndexSetup(solrUrl);
         indexSetup.init();
+        // setup postgresql schema
+        PgSchemaSetup pgSetup = new PgSchemaSetup(pgProps);
+        pgSetup.init();
     }
-    
-    
+
     @Before
     public void beforeTest() {
         // instantiate WFS 1.1 xpath engine
@@ -97,7 +105,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
             LOGGER.log(Level.WARNING, "Error removing tests root directory.", exception);
         }
     }
-    
+
     /**
      * Helper method that builds a XPATH engine using the base namespaces (ow, ogc, etc ...), all
      * the namespaces available in the GeoServer catalog and the provided extra namespaces.
@@ -128,7 +136,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         xpathEngine.setNamespaceContext(new SimpleNamespaceContext(namespaces));
         return xpathEngine;
     }
-    
+
     @Override
     protected void onSetUp(SystemTestData testData) throws Exception {
         super.onSetUp(testData);
@@ -154,7 +162,8 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         catalog.add(stLayer);
         // Observations
         FeatureTypeInfo obserFeatureType =
-                builder.buildFeatureType(new NameImpl(STATIONS_NAMESPACE, OBSERVATIONS_MAPPING_NAME));
+                builder.buildFeatureType(
+                        new NameImpl(STATIONS_NAMESPACE, OBSERVATIONS_MAPPING_NAME));
         catalog.add(obserFeatureType);
         LayerInfo obsLayer = builder.buildLayer(obserFeatureType);
         obsLayer.setDefaultStyle(catalog.getStyleByName("point"));
@@ -185,7 +194,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         catalog.add(workspace);
         catalog.add(nameSpace);
     }
-    
+
     public static PostgresqlProperties loadPgProperties() {
         Properties props = loadFixture();
         PostgresqlProperties pgp = new PostgresqlProperties();
@@ -197,7 +206,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         pgp.setPassword(props.getProperty("pg_password"));
         return pgp;
     }
-    
+
     /**
      * Try to load the fixture file associated with this tests, if the load file the tests are
      * skipped.
@@ -218,9 +227,9 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
             // make sure parent directory exists
             directory.mkdir();
         }
-        return new File(directory, "solr.properties");
+        return new File(directory, "appschema-indexes.properties");
     }
-    
+
     /** Helper method that just loads the fixture files properties. */
     private static Properties loadFixtureProperties(File fixtureFile) {
         Properties properties = new Properties();
@@ -235,11 +244,11 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
                     exception);
         }
     }
-    
+
     public String tempDirPath() {
         return TESTS_ROOT_DIR.getAbsolutePath();
     }
-    
+
     /** Helper method that creates a temporary directory. */
     public static File createTempDirectory(String dirName) {
         try {
@@ -248,7 +257,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
             throw new RuntimeException("Error creating temporary directory.", exception);
         }
     }
-    
+
     /**
      * Helper method that checks if the provided XPath expression evaluated against the provided XML
      * document yields the expected number of matches.
@@ -262,5 +271,4 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
             throw new RuntimeException("Error evaluating xpath.", exception);
         }
     }
-    
 }
