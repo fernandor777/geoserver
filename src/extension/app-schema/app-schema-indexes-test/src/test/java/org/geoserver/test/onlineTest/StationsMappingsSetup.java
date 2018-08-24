@@ -13,12 +13,35 @@ import org.apache.commons.lang3.StringUtils;
 public class StationsMappingsSetup {
 
     public static final String MAPPING_FILE_NAME = "mappings.xml";
+    public static final String INCLUDED_FILE_NAME = "includedTypes.xml";
 
     public void setupMapping(
             String solrUrl, String solrCoreName, PostgresqlProperties pgProps, File testDir) {
+        // replace mappings.xml placeholders
         String mappingsContent = loadFileAsString("test-data/" + MAPPING_FILE_NAME);
         mappingsContent = StringUtils.replace(mappingsContent, "${solr_url}", solrUrl);
         mappingsContent = StringUtils.replace(mappingsContent, "${solr_core}", solrCoreName);
+        mappingsContent = replacePgPlaceholders(mappingsContent, pgProps);
+        // replace includedTypes.xml placeholders
+        String includedContent = loadFileAsString("test-data/" + INCLUDED_FILE_NAME);
+        includedContent = replacePgPlaceholders(includedContent, pgProps);
+        try {
+            // save as mappings.xml final file
+            Path path = Paths.get(testDir.getAbsolutePath(), MAPPING_FILE_NAME);
+            Files.write(path, mappingsContent.getBytes());
+            // save as includedTypes.xml final file
+            Path itpath = Paths.get(testDir.getAbsolutePath(), INCLUDED_FILE_NAME);
+            Files.write(itpath, includedContent.getBytes());
+            // create app-schema-cache directory
+            Path dirpath = Paths.get(testDir.getAbsolutePath(), "app-schema-cache");
+            Files.createDirectories(dirpath);
+            copyRelatedFiles(testDir.getAbsolutePath());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    protected String replacePgPlaceholders(String mappingsContent, PostgresqlProperties pgProps) {
         mappingsContent = StringUtils.replace(mappingsContent, "${pg_host}", pgProps.getHost());
         mappingsContent = StringUtils.replace(mappingsContent, "${pg_port}", pgProps.getPort());
         mappingsContent =
@@ -27,17 +50,7 @@ public class StationsMappingsSetup {
         mappingsContent = StringUtils.replace(mappingsContent, "${pg_user}", pgProps.getUser());
         mappingsContent =
                 StringUtils.replace(mappingsContent, "${pg_password}", pgProps.getPassword());
-        try {
-            // save as mappings.xml final file
-            Path path = Paths.get(testDir.getAbsolutePath(), MAPPING_FILE_NAME);
-            Files.write(path, mappingsContent.getBytes());
-            // create app-schema-cache directory
-            Path dirpath = Paths.get(testDir.getAbsolutePath(), "app-schema-cache");
-            Files.createDirectories(dirpath);
-            copyRelatedFiles(testDir.getAbsolutePath());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return mappingsContent;
     }
 
     /**
@@ -48,7 +61,6 @@ public class StationsMappingsSetup {
     private void copyRelatedFiles(String testDirPath) throws IOException {
         // meteo.xsd
         copyFile("meteo.xsd", testDirPath);
-        copyFile("includedTypes.xml", testDirPath);
     }
 
     private void copyFile(String fileName, String testDirPath) throws IOException {

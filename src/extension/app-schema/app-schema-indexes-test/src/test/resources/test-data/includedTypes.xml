@@ -21,11 +21,11 @@
                 </Parameter>
                 <Parameter>
                     <name>port</name>
-                    <value>5432</value>
+                    <value>${pg_port}</value>
                 </Parameter>
                 <Parameter>
                     <name>passwd</name>
-                    <value>sis98</value>
+                    <value>${pg_password}</value>
                 </Parameter>
                 <Parameter>
                     <name>dbtype</name>
@@ -45,7 +45,7 @@
                 </Parameter>
                 <Parameter>
                     <name>schema</name>
-                    <value>meteo</value>
+                    <value>${pg_schema}</value>
                 </Parameter>
                 <Parameter>
                     <name>create database</name>
@@ -69,7 +69,7 @@
                 </Parameter>
                 <Parameter>
                     <name>host</name>
-                    <value>localhost</value>
+                    <value>${pg_host}</value>
                 </Parameter>
                 <Parameter>
                     <name>validate connections</name>
@@ -81,7 +81,7 @@
                 </Parameter>
                 <Parameter>
                     <name>database</name>
-                    <value>stations</value>
+                    <value>${pg_database}</value>
                 </Parameter>
                 <Parameter>
                     <name>Support on the fly geometry simplification</name>
@@ -113,7 +113,7 @@
                 </Parameter>
                 <Parameter>
                     <name>user</name>
-                    <value>sisapp</value>
+                    <value>${pg_user}</value>
                 </Parameter>
             </parameters>
         </DataStore>

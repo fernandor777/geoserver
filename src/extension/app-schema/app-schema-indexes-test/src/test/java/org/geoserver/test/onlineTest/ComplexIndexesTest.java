@@ -1,5 +1,7 @@
 package org.geoserver.test.onlineTest;
 
+import static org.geoserver.test.onlineTest.Resources.TEST_DATA_DIR;
+import static org.geoserver.test.onlineTest.Resources.resourceToString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
@@ -13,8 +15,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Level;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
-import org.custommonkey.xmlunit.SimpleNamespaceContext;
 import org.custommonkey.xmlunit.XMLUnit;
 import org.custommonkey.xmlunit.XpathEngine;
 import org.geoserver.catalog.Catalog;
@@ -60,8 +67,36 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
     public static final StationsMappingsSetup stationSetup = new StationsMappingsSetup();
 
     @Test
-    public void testOne() {
-        String x = "";
+    public void testQueryComplex() throws Exception {
+        String wfsQuery = resourceToString(TEST_DATA_DIR + "/complex-wildcard-query.xml");
+        Document responseDoc = postAsDOM("wfs", wfsQuery);
+        checkCount(
+                WFS20_XPATH_ENGINE,
+                responseDoc,
+                1,
+                "//wfs:FeatureCollection/wfs:member/st:Station");
+        checkCount(
+                WFS20_XPATH_ENGINE,
+                responseDoc,
+                1,
+                String.format("//wfs:FeatureCollection/wfs:member/st:Station[@gml:id='%s']", "13"));
+    }
+
+    protected void assertCountXpath(Document doc, String xpathString, int countParam) {
+        int count = 0;
+        try {
+            XPathFactory xpathFactory = XPathFactory.newInstance();
+            XPath xpath = xpathFactory.newXPath();
+            xpath.setNamespaceContext(XmlTools.getStationsNSContext());
+            // compile xpath expression, ex:
+            // count(//cricketers/cricketer)
+            XPathExpression expr = xpath.compile("count(" + xpathString + ")");
+            Number result = (Number) expr.evaluate(doc, XPathConstants.NUMBER);
+            count = result.intValue();
+        } catch (XPathExpressionException e) {
+            throw new RuntimeException(e);
+        }
+        assertEquals(countParam, count);
     }
 
     @BeforeClass
@@ -76,7 +111,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         stationSetup.setupMapping(solrUrl, solrCoreName, pgProps, TESTS_ROOT_DIR);
         // setup solr core
         SolrIndexSetup indexSetup = new SolrIndexSetup(solrUrl);
-        indexSetup.init();
+        // indexSetup.init();
         // setup postgresql schema
         PgSchemaSetup pgSetup = new PgSchemaSetup(pgProps);
         pgSetup.init();
@@ -85,15 +120,18 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
     @Before
     public void beforeTest() {
         // instantiate WFS 1.1 xpath engine
+        Pair<String, String> stationsNamespace = Pair.of("st", STATIONS_NAMESPACE);
         WFS11_XPATH_ENGINE =
                 buildXpathEngine(
-                        "wfs", "http://www.opengis.net/wfs",
-                        "gml", "http://www.opengis.net/gml");
+                        Pair.of("wfs", "http://www.opengis.net/wfs"),
+                        Pair.of("gml", "http://www.opengis.net/gml"),
+                        stationsNamespace);
         // instantiate WFS 2.0 xpath engine
         WFS20_XPATH_ENGINE =
                 buildXpathEngine(
-                        "wfs", "http://www.opengis.net/wfs/2.0",
-                        "gml", "http://www.opengis.net/gml/3.2");
+                        Pair.of("wfs", "http://www.opengis.net/wfs/2.0"),
+                        Pair.of("gml", "http://www.opengis.net/gml/3.2"),
+                        stationsNamespace);
     }
 
     @AfterClass
@@ -110,7 +148,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
      * Helper method that builds a XPATH engine using the base namespaces (ow, ogc, etc ...), all
      * the namespaces available in the GeoServer catalog and the provided extra namespaces.
      */
-    private XpathEngine buildXpathEngine(String... extraNamespaces) {
+    private XpathEngine buildXpathEngine(Pair<String, String>... extraNamespaces) {
         // build xpath engine
         XpathEngine xpathEngine = XMLUnit.newXpathEngine();
         Map<String, String> namespaces = new HashMap<>();
@@ -125,15 +163,12 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         for (NamespaceInfo namespace : getCatalog().getNamespaces()) {
             namespaces.put(namespace.getPrefix(), namespace.getURI());
         }
-        // add provided namespaces
-        if (extraNamespaces.length % 2 != 0) {
-            throw new RuntimeException("Invalid number of namespaces provided.");
-        }
-        for (int i = 0; i < extraNamespaces.length; i += 2) {
-            namespaces.put(extraNamespaces[i], extraNamespaces[i + 1]);
+        for (Pair<String, String> ns : extraNamespaces) {
+            namespaces.put(ns.getLeft(), ns.getRight());
         }
         // add namespaces to the xpath engine
-        xpathEngine.setNamespaceContext(new SimpleNamespaceContext(namespaces));
+        xpathEngine.setNamespaceContext(
+                new org.custommonkey.xmlunit.SimpleNamespaceContext(namespaces));
         return xpathEngine;
     }
 
@@ -155,15 +190,14 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         builder.setWorkspace(catalog.getWorkspaceByName("st"));
         // Stations
         FeatureTypeInfo stationsFeatureType =
-                builder.buildFeatureType(new NameImpl(STATIONS_NAMESPACE, STATIONS_MAPPING_NAME));
+                builder.buildFeatureType(new NameImpl(null, STATIONS_MAPPING_NAME));
         catalog.add(stationsFeatureType);
         LayerInfo stLayer = builder.buildLayer(stationsFeatureType);
         stLayer.setDefaultStyle(catalog.getStyleByName("point"));
         catalog.add(stLayer);
         // Observations
         FeatureTypeInfo obserFeatureType =
-                builder.buildFeatureType(
-                        new NameImpl(STATIONS_NAMESPACE, OBSERVATIONS_MAPPING_NAME));
+                builder.buildFeatureType(new NameImpl(null, OBSERVATIONS_MAPPING_NAME));
         catalog.add(obserFeatureType);
         LayerInfo obsLayer = builder.buildLayer(obserFeatureType);
         obsLayer.setDefaultStyle(catalog.getStyleByName("point"));

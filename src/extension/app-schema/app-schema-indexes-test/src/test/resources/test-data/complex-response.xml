@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<wfs:FeatureCollection
+	xmlns:wfs="http://www.opengis.net/wfs/2.0"
+	xmlns:cdf="http://www.opengis.net/cite/data"
+	xmlns:cgf="http://www.opengis.net/cite/geometry"
+	xmlns:cite="http://www.opengis.net/cite"
+	xmlns:gml="http://www.opengis.net/gml/3.2"
+	xmlns:gs="http://geoserver.org"
+	xmlns:sf="http://cite.opengeospatial.org/gmlsf"
+	xmlns:st="http://www.stations.org/1.0"
+	xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	numberMatched="unknown" numberReturned="1"
+	timeStamp="2018-08-24T22:07:48.449Z"
+	xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://localhost:8080/geoserver/schemas/wfs/2.0/wfs.xsd http://www.stations.org/1.0 file:/C:/Users/Fernando/AppData/Local/Temp/complex-indexes2859721438066977852/meteo.xsd http://www.opengis.net/gml/3.2 http://localhost:8080/geoserver/schemas/gml/3.2.1/gml.xsd">
+	<wfs:boundedBy>
+		<gml:Envelope>
+			<gml:lowerCorner>8.63 44.92</gml:lowerCorner>
+			<gml:upperCorner>8.63 44.92</gml:upperCorner>
+		</gml:Envelope>
+	</wfs:boundedBy>
+	<wfs:member>
+		<st:Station gml:id="13">
+			<gml:boundedBy>
+				<gml:Envelope srsDimension="2"
+					srsName="http://www.opengis.net/gml/srs/epsg.xml#4326">
+					<gml:lowerCorner>8.63 44.92</gml:lowerCorner>
+					<gml:upperCorner>8.63 44.92</gml:upperCorner>
+				</gml:Envelope>
+			</gml:boundedBy>
+			<st:stationName>1_Alessandria</st:stationName>
+			<st:observation>
+				<st:Observation gml:id="1">
+					<st:value>20.0</st:value>
+					<st:description>wrapper</st:description>
+					<st:parameter>
+						<st:Parameter gml:id="1">
+							<st:parameter>temperature</st:parameter>
+						</st:Parameter>
+					</st:parameter>
+				</st:Observation>
+			</st:observation>
+			<st:observation>
+				<st:Observation gml:id="2">
+					<st:value>155.0</st:value>
+					<st:description>We know that some users may have experienced
+						difficulty accessing OneDrive for Business on Linux</st:description>
+					<st:parameter>
+						<st:Parameter gml:id="2">
+							<st:parameter>wind speed</st:parameter>
+						</st:Parameter>
+					</st:parameter>
+				</st:Observation>
+			</st:observation>
+			<st:position>
+				<gml:Point srsDimension="2"
+					srsName="http://www.opengis.net/gml/srs/epsg.xml#4326">
+					<gml:pos>8.63 44.92</gml:pos>
+				</gml:Point>
+			</st:position>
+			<st:comments>No risk of severe thunders</st:comments>
+		</st:Station>
+	</wfs:member>
+</wfs:FeatureCollection>
