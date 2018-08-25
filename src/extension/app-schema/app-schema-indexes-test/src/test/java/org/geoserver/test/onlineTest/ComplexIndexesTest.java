@@ -15,13 +15,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Level;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathExpression;
-import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.custommonkey.xmlunit.SimpleNamespaceContext;
+import org.custommonkey.xmlunit.XMLAssert;
 import org.custommonkey.xmlunit.XMLUnit;
 import org.custommonkey.xmlunit.XpathEngine;
 import org.geoserver.catalog.Catalog;
@@ -68,6 +65,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
 
     @Test
     public void testQueryComplex() throws Exception {
+        setupXmlUnitNamespaces();
         String wfsQuery = resourceToString(TEST_DATA_DIR + "/complex-wildcard-query.xml");
         Document responseDoc = postAsDOM("wfs", wfsQuery);
         checkCount(
@@ -80,23 +78,22 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
                 responseDoc,
                 1,
                 String.format("//wfs:FeatureCollection/wfs:member/st:Station[@gml:id='%s']", "13"));
-    }
-
-    protected void assertCountXpath(Document doc, String xpathString, int countParam) {
-        int count = 0;
-        try {
-            XPathFactory xpathFactory = XPathFactory.newInstance();
-            XPath xpath = xpathFactory.newXPath();
-            xpath.setNamespaceContext(XmlTools.getStationsNSContext());
-            // compile xpath expression, ex:
-            // count(//cricketers/cricketer)
-            XPathExpression expr = xpath.compile("count(" + xpathString + ")");
-            Number result = (Number) expr.evaluate(doc, XPathConstants.NUMBER);
-            count = result.intValue();
-        } catch (XPathExpressionException e) {
-            throw new RuntimeException(e);
-        }
-        assertEquals(countParam, count);
+        // st:stationName = 1_Alessandria
+        XMLAssert.assertXpathEvaluatesTo(
+                "1_Alessandria",
+                "//wfs:FeatureCollection/wfs:member/st:Station[@gml:id='13']/st:stationName",
+                responseDoc);
+        // wfs:FeatureCollection/wfs:member/st:Station/st:observation/st:Observation
+        checkCount(
+                WFS20_XPATH_ENGINE,
+                responseDoc,
+                2,
+                "//wfs:FeatureCollection/wfs:member/st:Station[@gml:id='13']/st:observation/st:Observation");
+        XMLAssert.assertXpathEvaluatesTo(
+                "wrapper",
+                "//wfs:FeatureCollection/wfs:member/st:Station[@gml:id='13']/st:observation"
+                        + "/st:Observation[@gml:id='1']/st:description",
+                responseDoc);
     }
 
     @BeforeClass
@@ -111,7 +108,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         stationSetup.setupMapping(solrUrl, solrCoreName, pgProps, TESTS_ROOT_DIR);
         // setup solr core
         SolrIndexSetup indexSetup = new SolrIndexSetup(solrUrl);
-        // indexSetup.init();
+        indexSetup.init();
         // setup postgresql schema
         PgSchemaSetup pgSetup = new PgSchemaSetup(pgProps);
         pgSetup.init();
@@ -148,9 +145,25 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
      * Helper method that builds a XPATH engine using the base namespaces (ow, ogc, etc ...), all
      * the namespaces available in the GeoServer catalog and the provided extra namespaces.
      */
-    private XpathEngine buildXpathEngine(Pair<String, String>... extraNamespaces) {
+    protected XpathEngine buildXpathEngine(Pair<String, String>... extraNamespaces) {
         // build xpath engine
         XpathEngine xpathEngine = XMLUnit.newXpathEngine();
+        Map<String, String> namespaces = defaultNamespacesMap(extraNamespaces);
+        // add namespaces to the xpath engine
+        xpathEngine.setNamespaceContext(new SimpleNamespaceContext(namespaces));
+        return xpathEngine;
+    }
+
+    protected void setupXmlUnitNamespaces() {
+        XMLUnit.setXpathNamespaceContext(
+                new SimpleNamespaceContext(
+                        defaultNamespacesMap(
+                                Pair.of("st", STATIONS_NAMESPACE),
+                                Pair.of("wfs", "http://www.opengis.net/wfs/2.0"),
+                                Pair.of("gml", "http://www.opengis.net/gml/3.2"))));
+    }
+
+    protected Map<String, String> defaultNamespacesMap(Pair<String, String>... extraNamespaces) {
         Map<String, String> namespaces = new HashMap<>();
         // add common namespaces
         namespaces.put("ows", "http://www.opengis.net/ows");
@@ -166,10 +179,7 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
         for (Pair<String, String> ns : extraNamespaces) {
             namespaces.put(ns.getLeft(), ns.getRight());
         }
-        // add namespaces to the xpath engine
-        xpathEngine.setNamespaceContext(
-                new org.custommonkey.xmlunit.SimpleNamespaceContext(namespaces));
-        return xpathEngine;
+        return namespaces;
     }
 
     @Override
