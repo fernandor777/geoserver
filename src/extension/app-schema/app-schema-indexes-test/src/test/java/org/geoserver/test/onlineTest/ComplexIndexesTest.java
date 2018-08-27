@@ -64,6 +64,20 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
     public static final StationsMappingsSetup stationSetup = new StationsMappingsSetup();
 
     @Test
+    public void testPagination() throws Exception {
+        // pagination-test-query.xml
+        setupXmlUnitNamespaces();
+        String wfsQuery = resourceToString(TEST_DATA_DIR + "/pagination-test-query.xml");
+        Document responseDoc = postAsDOM("wfs", wfsQuery);
+        // without pagination-limit we'd get 3 features, test we got only 1:
+        checkCount(
+                WFS20_XPATH_ENGINE,
+                responseDoc,
+                1,
+                "//wfs:FeatureCollection/wfs:member/st:Station");
+    }
+
+    @Test
     public void testQueryComplex() throws Exception {
         setupXmlUnitNamespaces();
         String wfsQuery = resourceToString(TEST_DATA_DIR + "/complex-wildcard-query.xml");

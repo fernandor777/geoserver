@@ -46,14 +46,14 @@
         "station_name": "Rovereto2",
         "stations_comments": "Kennedy North",
         "observation_id": "9",
-    	"observation_description": "wing it"
+    	"observation_description": "wing it, wind"
 	},
     {
     	"station_id": "22",
         "station_name": "London",
         "stations_comments": "Park avenue",
         "observation_id": "10",
-        "observation_description": "past verbs"
+        "observation_description": "past verbs, wind"
 	}
 ]
 
