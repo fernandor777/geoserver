@@ -1240,7 +1240,7 @@ public class ResourcePool {
 
         // TODO: support aliasing (renaming), reprojection, versioning, and locking for DataAccess
         if (!(dataAccess instanceof DataStore)) {
-            return dataAccess.getFeatureSource(info.getQualifiedName());
+            return dataAccess.getFeatureSource(info.getQualifiedNativeName());
         }
 
         DataStore dataStore = (DataStore) dataAccess;
