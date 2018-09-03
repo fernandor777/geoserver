@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.namespace.QName;
@@ -311,6 +312,9 @@ public class Dispatcher extends AbstractController {
         // figure out method
         request.setGet("GET".equalsIgnoreCase(httpRequest.getMethod()) || isForm(reqContentType));
 
+        setupContextPath(request);
+        // Initialize context enabled callbacks
+        initContextInitializers(request);
         // create the kvp map
         parseKVP(request);
 
@@ -378,6 +382,11 @@ public class Dispatcher extends AbstractController {
             if (read == -1) request.setInput(null);
             else request.getInput().reset();
         }
+
+        return fireInitCallback(request);
+    }
+
+    private void setupContextPath(Request request) {
         // parse the request path into two components. (1) the 'path' which
         // is the string after the last '/', and the 'context' which is the
         // string before the last '/'
@@ -407,8 +416,16 @@ public class Dispatcher extends AbstractController {
 
         request.setContext(context);
         request.setPath(path);
+    }
 
-        return fireInitCallback(request);
+    private void initContextInitializers(Request request) {
+        callbacks
+                .stream()
+                .filter(x -> x.preKvpParsingEnabled())
+                .forEach(
+                        x -> {
+                            x.init(request);
+                        });
     }
 
     private boolean isForm(String contentType) {
@@ -420,7 +437,12 @@ public class Dispatcher extends AbstractController {
     }
 
     Request fireInitCallback(Request req) {
-        for (DispatcherCallback cb : callbacks) {
+        List<DispatcherCallback> deferedCallbacks =
+                callbacks
+                        .stream()
+                        .filter(x -> !x.preKvpParsingEnabled())
+                        .collect(Collectors.toList());
+        for (DispatcherCallback cb : deferedCallbacks) {
             Request r = cb.init(req);
             req = r != null ? r : req;
         }

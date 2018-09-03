@@ -42,6 +42,7 @@ import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.NamespaceInfo;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.config.GeoServer;
+import org.geoserver.config.util.ExtendedLayerNamesUtils;
 import org.geoserver.ows.LocalWorkspace;
 import org.geoserver.ows.URLMangler.URLType;
 import org.geoserver.ows.util.ResponseUtils;
@@ -577,7 +578,7 @@ public abstract class FeatureTypeSchemaBuilder {
         // look if the schema for the type is already defined
         String ws = featureTypeMeta.getStore().getWorkspace().getName();
         String ds = featureTypeMeta.getStore().getName();
-        String name = featureTypeMeta.getName();
+        String name = ExtendedLayerNamesUtils.escape(featureTypeMeta.getName());
 
         Resource schemaFile =
                 resourceLoader.get("workspaces/" + ws + "/" + ds + "/" + name + "/schema.xsd");

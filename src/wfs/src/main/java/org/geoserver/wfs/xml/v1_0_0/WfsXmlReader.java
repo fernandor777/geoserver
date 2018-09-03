@@ -16,6 +16,7 @@ import org.geoserver.util.EntityResolverProvider;
 import org.geoserver.wfs.CatalogNamespaceSupport;
 import org.geoserver.wfs.WFSException;
 import org.geoserver.wfs.xml.WFSURIHandler;
+import org.geoserver.wfs.xml.WFSXmlUtils;
 import org.geotools.util.Version;
 import org.geotools.xml.Configuration;
 import org.geotools.xml.Parser;
@@ -68,7 +69,7 @@ public class WfsXmlReader extends XmlRequestReader {
         WFSURIHandler.addToParser(geoServer, parser);
 
         // parse
-        Object parsed = parser.parse(reader);
+        Object parsed = parser.parse(WFSXmlUtils.prefixLocalTypeNames(reader, getVersion()));
 
         // if strict was set, check for validation errors and throw an exception
         if (strict.booleanValue() && !parser.getValidationErrors().isEmpty()) {

@@ -9,6 +9,7 @@ import java.util.List;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.PublishedInfo;
 import org.geoserver.catalog.WorkspaceInfo;
+import org.geoserver.config.util.ExtendedLayerNamesUtils;
 import org.geoserver.ows.util.OwsUtils;
 import org.geoserver.platform.Operation;
 import org.geoserver.platform.Service;
@@ -74,11 +75,20 @@ public abstract class WorkspaceQualifyingCallback implements DispatcherCallback 
             WorkspaceInfo workspace, PublishedInfo layer, Operation operation, Request request);
 
     protected String qualifyName(String name, WorkspaceInfo ws) {
-
         int colon = name.indexOf(':');
         if (colon == -1) {
+            // layer name has not colon char, add local workspace prefix
             name = ws.getName() + ":" + name;
         } else {
+            // layer name has colon char
+            // if extended layer names enabled:
+            if (ExtendedLayerNamesUtils.isEnabled()) {
+                // if layer name exists on workspace, return it adding prefix:
+                if (catalog.getLayerByName(ws.getName() + ":" + name) != null) {
+                    return ws.getName() + ":" + name;
+                }
+            }
+            // layer name don't exists, so remove bad prefix and add local workspace name
             String prefix = name.substring(0, colon);
             if (!prefix.equalsIgnoreCase(ws.getName())) {
                 name = ws.getName() + ":" + name.substring(colon + 1);

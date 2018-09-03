@@ -281,11 +281,11 @@ public class LocalWorkspaceCatalog extends AbstractCatalogDecorator implements C
                     || "getPrefixedName".equals(method.getName())
                     || "getName".equals(method.getName())) {
                 String val = (String) method.invoke(object, args);
-                if (val == null || val.indexOf(':') == -1) {
+                int colonIndex = val.indexOf(':');
+                if (val == null || colonIndex == -1) {
                     return val;
                 }
-
-                return val.split(":")[1];
+                return val.substring(colonIndex + 1);
             }
 
             return method.invoke(object, args);

@@ -307,7 +307,6 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
             applicationContext.setUseLegacyGeoServerLoader(false);
             applicationContext.refresh();
             applicationContext.publishEvent(new ContextLoadedEvent(applicationContext));
-
             // set the parameter after a refresh because it appears a refresh
             // wipes
             // out all parameters

@@ -69,6 +69,7 @@ public class GlobalSettingsPage extends ServerAdminPage {
         form.add(new CheckBox("verbose"));
         form.add(new CheckBox("verboseExceptions"));
         form.add(new CheckBox("globalServices"));
+        form.add(new CheckBox("extendedCharsOnLayerNamesEnabled"));
         form.add(new TextField<Integer>("numDecimals").add(RangeValidator.minimum(0)));
         form.add(new Select2DropDownChoice<>("charset", AVAILABLE_CHARSETS));
         form.add(

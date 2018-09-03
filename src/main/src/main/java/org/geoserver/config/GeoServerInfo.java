@@ -307,6 +307,20 @@ public interface GeoServerInfo extends Info {
     /** Disposes the global configuration object. */
     void dispose();
 
+    /**
+     * Get if extended chars (as colon :) are accepted and escaped on layer names
+     *
+     * @return true if extended char support is enabled, else false.
+     */
+    public Boolean isExtendedCharsOnLayerNamesEnabled();
+
+    /**
+     * Set if extended chars (as colon :) are accepted and escaped on layer names
+     *
+     * @param setting true for enable extended char support
+     */
+    public void setExtendedCharsOnLayerNamesEnabled(Boolean setting);
+
     /** WebUIMode choices */
     public enum WebUIMode {
         /** Let GeoServer determine the best mode. */

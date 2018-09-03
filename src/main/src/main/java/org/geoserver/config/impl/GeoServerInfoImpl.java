@@ -50,6 +50,8 @@ public class GeoServerInfoImpl implements GeoServerInfo {
 
     protected String lockProviderName;
 
+    protected Boolean extendedCharsOnLayerNamesEnabled = Boolean.FALSE;
+
     protected WebUIMode webUIMode = WebUIMode.DEFAULT;
 
     // deprecated members, kept around to maintain xstream persistence backward compatability
@@ -422,6 +424,18 @@ public class GeoServerInfoImpl implements GeoServerInfo {
         }
 
         return resourceErrorHandling;
+    }
+
+    @Override
+    public Boolean isExtendedCharsOnLayerNamesEnabled() {
+        return (extendedCharsOnLayerNamesEnabled == null)
+                ? false
+                : extendedCharsOnLayerNamesEnabled;
+    }
+
+    @Override
+    public void setExtendedCharsOnLayerNamesEnabled(Boolean extendedCharsOnLayerNamesEnabled) {
+        this.extendedCharsOnLayerNamesEnabled = extendedCharsOnLayerNamesEnabled;
     }
 
     @Override

@@ -5,15 +5,27 @@
  */
 package org.geoserver.wfs.xml;
 
+import java.io.IOException;
 import java.io.Reader;
+import java.io.StringReader;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.xml.namespace.QName;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
+import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.config.GeoServer;
+import org.geoserver.config.util.ExtendedLayerNamesUtils;
+import org.geoserver.ows.LocalWorkspace;
 import org.geoserver.ows.XmlRequestReader;
 import org.geoserver.wfs.CatalogNamespaceSupport;
 import org.geoserver.wfs.WFSException;
@@ -21,9 +33,11 @@ import org.geoserver.wfs.WFSInfo;
 import org.geoserver.wfs.xml.gml3.AbstractGeometryTypeBinding;
 import org.geotools.gml2.FeatureTypeCache;
 import org.geotools.gml2.SrsSyntax;
+import org.geotools.util.Version;
 import org.geotools.xml.Configuration;
 import org.geotools.xml.OptionalComponentParameter;
 import org.geotools.xml.Parser;
+import org.geotools.xml.XMLUtils;
 import org.opengis.feature.type.FeatureType;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.picocontainer.ComponentAdapter;
@@ -32,7 +46,12 @@ import org.picocontainer.Parameter;
 import org.picocontainer.PicoContainer;
 import org.picocontainer.defaults.BasicComponentParameter;
 import org.picocontainer.defaults.SetterInjectionComponentAdapter;
+import org.springframework.util.xml.SimpleNamespaceContext;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 /**
  * Some utilities shared among WFS xml readers/writers.
@@ -156,6 +175,73 @@ public class WFSXmlUtils {
                 ((org.geotools.gml3.GMLConfiguration) dep).setSrsSyntax(srsSyntax);
             }
         }
+    }
+
+    /**
+     * Adds prefixes to local typeNames, only on virtual service context
+     *
+     * @param reader Xml query reader
+     * @return xml query reader with prefixed TypeNames
+     */
+    public static Reader prefixLocalTypeNames(Reader reader, Version version)
+            throws SAXException, IOException, ParserConfigurationException {
+        // are we in the context of a virtual service and Isolated Workspace?
+        WorkspaceInfo wsInfo = LocalWorkspace.get();
+        // If it comply with the conditions and Extended Layer names is enabled
+        if (wsInfo != null && ExtendedLayerNamesUtils.isEnabled()) {
+            Document doc =
+                    DocumentBuilderFactory.newInstance()
+                            .newDocumentBuilder()
+                            .parse(new InputSource(reader));
+            doc.getChildNodes().getLength();
+            XPathFactory xpathfactory = XPathFactory.newInstance();
+            XPath xpath = xpathfactory.newXPath();
+            xpath.setNamespaceContext(getWfsQueryNSContext(version));
+            // search Query nodes to edit typeName attribute
+            try {
+                NodeList nodes =
+                        (NodeList)
+                                xpath.evaluate("//GetFeature/Query", doc, XPathConstants.NODESET);
+                for (int idx = 0; idx < nodes.getLength(); idx++) {
+                    Node anode = nodes.item(idx);
+                    Node typeNameAttr = anode.getAttributes().getNamedItem("typeNames");
+                    if (typeNameAttr == null)
+                        typeNameAttr = anode.getAttributes().getNamedItem("typeName");
+                    if (typeNameAttr == null) continue;
+                    String typeName = typeNameAttr.getNodeValue().trim();
+                    // check if has colon
+                    if (typeName.contains(":")) {
+                        String[] parts = typeName.split(":");
+                        // if first part is local workspace name, continue to next
+                        if (parts[0].equals(wsInfo.getName())) {
+                            continue;
+                        }
+                    }
+                    // dont have the local workspace prefix, so add it
+                    typeNameAttr.setNodeValue(wsInfo.getName() + ":" + typeName);
+                }
+                // build new reader and return it
+                String newXml = XMLUtils.documentToString(doc);
+                return new StringReader(newXml);
+            } catch (XPathExpressionException | TransformerException e) {
+                return reader;
+            }
+        }
+        return reader;
+    }
+
+    public static SimpleNamespaceContext getWfsQueryNSContext(Version version) {
+        SimpleNamespaceContext nsCtx = new SimpleNamespaceContext();
+        if (version.compareTo(new Version("2.0.0")) >= 0) {
+            nsCtx.bindNamespaceUri("gml", "http://www.opengis.net/gml/3.2");
+            nsCtx.bindNamespaceUri("fes", "http://www.opengis.net/fes/2.0");
+            nsCtx.bindNamespaceUri("", "http://www.opengis.net/wfs/2.0");
+        } else {
+            nsCtx.bindNamespaceUri("ogc", "http://www.opengis.net/ogc");
+            nsCtx.bindNamespaceUri("", "http://www.opengis.net/wfs");
+        }
+
+        return nsCtx;
     }
 
     static class DirectObjectParameter extends BasicComponentParameter {

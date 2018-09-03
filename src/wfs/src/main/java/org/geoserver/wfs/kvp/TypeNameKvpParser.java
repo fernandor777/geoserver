@@ -9,6 +9,7 @@ import javax.xml.namespace.QName;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.config.GeoServer;
+import org.geoserver.ows.LocalWorkspace;
 import org.geoserver.wfs.WFSInfo;
 import org.opengis.feature.type.Name;
 
@@ -32,8 +33,29 @@ public class TypeNameKvpParser extends QNameKvpParser {
 
     protected Object parseToken(String token) throws Exception {
         int i = token.indexOf(':');
-
-        if (i != -1 || geoserver.getService(WFSInfo.class).isCiteCompliant()) {
+        boolean isCiteCompliant = geoserver.getService(WFSInfo.class).isCiteCompliant();
+        // if token has colon char (:)
+        if (i != -1 || isCiteCompliant) {
+            // if we are on a local workspace context (virtual service)
+            // and Extended Layer names is enabled
+            if (geoserver.getGlobal().isExtendedCharsOnLayerNamesEnabled()
+                    && !isCiteCompliant
+                    && LocalWorkspace.get() != null) {
+                String part1 = token.substring(0, i);
+                String part2 = token.substring(i + 1);
+                // if part1: equals to local workspace, cut part1
+                // and return it with local workspace name
+                if (part1.equals(LocalWorkspace.get().getName())) {
+                    return new QName(LocalWorkspace.get().getName(), part2);
+                }
+                // if part1: not equals to local workspace, check if layername exists
+                FeatureTypeInfo ftInfo =
+                        catalog.getFeatureTypeByName(LocalWorkspace.get().getName(), token);
+                // if layername exists, return it
+                if (ftInfo != null) {
+                    return new QName(ftInfo.getNamespace().getURI(), ftInfo.getName());
+                }
+            }
             return super.parseToken(token);
         } else {
             // we don't have the namespace, use the catalog to lookup the feature type

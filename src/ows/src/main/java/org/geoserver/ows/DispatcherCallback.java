@@ -94,4 +94,13 @@ public interface DispatcherCallback {
      * @param request The request.
      */
     void finished(Request request);
+
+    /**
+     * return true if is enabled for execute before Kvp parsing on Dispatcher.init
+     *
+     * @return
+     */
+    default boolean preKvpParsingEnabled() {
+        return false;
+    }
 }

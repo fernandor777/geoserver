@@ -49,7 +49,9 @@ public class WfsXmlReader extends XmlRequestReader {
         WFSXmlUtils.initRequestParser(parser, wfs, gs, kvp);
         Object parsed = null;
         try {
-            parsed = WFSXmlUtils.parseRequest(parser, reader, wfs);
+            parsed =
+                    WFSXmlUtils.parseRequest(
+                            parser, WFSXmlUtils.prefixLocalTypeNames(reader, getVersion()), wfs);
         } catch (Exception e) {
             // check the exception, and set code to OperationParsingFailed if code not set
             if (!(e instanceof ServiceException) || ((ServiceException) e).getCode() == null) {

@@ -59,7 +59,9 @@ public class WfsXmlReader extends XmlRequestReader {
         parser.setEntityResolver(entityResolverProvider.getEntityResolver());
 
         WFSXmlUtils.initRequestParser(parser, wfs, geoServer, kvp);
-        Object parsed = WFSXmlUtils.parseRequest(parser, reader, wfs);
+        Object parsed =
+                WFSXmlUtils.parseRequest(
+                        parser, WFSXmlUtils.prefixLocalTypeNames(reader, getVersion()), wfs);
 
         WFSXmlUtils.checkValidationErrors(parser, this);
 

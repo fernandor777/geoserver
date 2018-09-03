@@ -13,6 +13,7 @@ import org.geoserver.catalog.LayerInfo;
 import org.geoserver.catalog.NamespaceInfo;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.config.GeoServer;
+import org.geoserver.config.util.ExtendedLayerNamesUtils;
 import org.geoserver.platform.ExtensionPriority;
 import org.geoserver.platform.Operation;
 import org.geoserver.platform.Service;
@@ -141,5 +142,13 @@ public class LocalWorkspaceCallback implements DispatcherCallback, ExtensionPrio
 
     public int getPriority() {
         return HIGHEST;
+    }
+
+    @Override
+    public boolean preKvpParsingEnabled() {
+        // if Extended Layer Names enabled, call this after KVP Parsing
+        // We'll need LocalWorkspace reference available on WFS KVP parsers
+        if (ExtendedLayerNamesUtils.isEnabled()) return true;
+        return false;
     }
 }

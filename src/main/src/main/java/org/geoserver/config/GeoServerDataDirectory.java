@@ -17,6 +17,7 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import org.apache.commons.io.FileUtils;
 import org.geoserver.catalog.*;
+import org.geoserver.config.util.ExtendedLayerNamesUtils;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.GeoServerResourceLoader;
 import org.geoserver.platform.resource.Paths;
@@ -524,7 +525,7 @@ public class GeoServerDataDirectory {
      */
     public File findLegacyResourceDir(ResourceInfo resource) throws IOException {
         StoreInfo store = resource.getStore();
-        String dirname = store.getName() + "_" + resource.getName();
+        String dirname = store.getName() + "_" + ExtendedLayerNamesUtils.escape(resource.getName());
         File dir = null;
         if (resource instanceof FeatureTypeInfo) {
             dir = resourceLoader.find("featureTypes", dirname);
@@ -1016,7 +1017,9 @@ public class GeoServerDataDirectory {
      * @return A {@link Resource}
      */
     public @Nonnull Resource get(ResourceInfo ri, String... path) {
-        Resource r = get(ri.getStore(), ri.getName(), Paths.path(path));
+        // escape resource name for colon (:) support in layer name
+        Resource r =
+                get(ri.getStore(), ExtendedLayerNamesUtils.escape(ri.getName()), Paths.path(path));
         assert r != null;
         return r;
     }
