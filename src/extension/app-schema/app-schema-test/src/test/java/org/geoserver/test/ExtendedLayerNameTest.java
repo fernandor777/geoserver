@@ -5,19 +5,13 @@ import static org.junit.Assert.assertEquals;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.custommonkey.xmlunit.XpathEngine;
@@ -31,6 +25,7 @@ import org.geoserver.catalog.impl.WorkspaceInfoImpl;
 import org.geoserver.config.GeoServerInfo;
 import org.geoserver.data.test.SystemTestData;
 import org.geotools.feature.NameImpl;
+import org.geotools.xml.XMLUtils;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -183,12 +178,7 @@ public class ExtendedLayerNameTest extends GeoServerSystemTestSupport {
      * @throws TransformerException
      */
     protected String toString(Document document) throws TransformerException {
-        TransformerFactory tf = TransformerFactory.newInstance();
-        Transformer transformer = tf.newTransformer();
-        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-        StringWriter writer = new StringWriter();
-        transformer.transform(new DOMSource(document), new StreamResult(writer));
-        return writer.getBuffer().toString();
+        return XMLUtils.documentToString(document);
     }
 
     /**
