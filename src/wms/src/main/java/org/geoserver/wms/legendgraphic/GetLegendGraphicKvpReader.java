@@ -235,13 +235,16 @@ public class GetLegendGraphicKvpReader extends KvpRequestReader {
      * @throws TransformException
      * @throws SchemaException
      */
-    private LegendRequest addLayer(LayerInfo layerInfo, GetLegendGraphicRequest request) throws FactoryRegistryException, IOException, TransformException, SchemaException {
-        FeatureType featureType=getLayerFeatureType(layerInfo);
-        if(featureType != null) {
-            LegendRequest legend = request.new LegendRequest(featureType);
-            legend.setLayerInfo( layerInfo );
-            
-            MapLayerInfo mli=new MapLayerInfo(layerInfo);            
+    private LegendRequest addLayer(LayerInfo layerInfo, GetLegendGraphicRequest request)
+            throws FactoryRegistryException, IOException, TransformException, SchemaException {
+        FeatureType featureType = getLayerFeatureType(layerInfo);
+        if (featureType != null) {
+            LegendRequest legend =
+                    request
+                    .new LegendRequest(featureType, layerInfo.getResource().getQualifiedName());
+            legend.setLayerInfo(layerInfo);
+
+            MapLayerInfo mli = new MapLayerInfo(layerInfo);
             // Temporary MapLayerInfo used to map a title, if label is defined on layer
             if(mli.getLabel() != null) {
                 legend.setTitle( mli.getLabel() );
