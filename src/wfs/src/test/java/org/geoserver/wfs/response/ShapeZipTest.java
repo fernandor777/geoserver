@@ -39,14 +39,12 @@ import org.geoserver.data.test.SystemTestData;
 import org.geoserver.platform.GeoServerResourceLoader;
 import org.geoserver.platform.Operation;
 import org.geoserver.wfs.WFSInfo;
-import org.geoserver.wfs.WFSTestSupport;
 import org.geoserver.wfs.request.FeatureCollectionResponse;
 import org.geotools.data.FeatureSource;
 import org.geotools.data.shapefile.ShapefileDataStore;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.data.simple.SimpleFeatureSource;
-import org.geotools.feature.FeatureCollection;
 import org.junit.Before;
 import org.junit.Test;
 import org.locationtech.jts.geom.Geometry;
@@ -59,7 +57,7 @@ import org.opengis.filter.Filter;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ShapeZipTest extends WFSTestSupport {
+public class ShapeZipTest extends BaseShapeZipTest {
 
     private static final QName ALL_TYPES =
             new QName(SystemTestData.CITE_URI, "AllTypes", SystemTestData.CITE_PREFIX);
@@ -78,16 +76,6 @@ public class ShapeZipTest extends WFSTestSupport {
 
     private static final QName DOTS =
             new QName(SystemTestData.CITE_URI, "dots.in.name", SystemTestData.CITE_PREFIX);
-
-    private Operation op;
-
-    private GetFeatureType gft;
-
-    @Before
-    public void init() throws Exception {
-        gft = WfsFactory.eINSTANCE.createGetFeatureType();
-        op = new Operation("GetFeature", getServiceDescriptor10(), null, new Object[] {gft});
-    }
 
     @Before
     public void cleanupTemplates() throws Exception {
@@ -522,34 +510,6 @@ public class ShapeZipTest extends WFSTestSupport {
                 "BasicPolygons.prj",
                 new ByteArrayInputStream(byteArrayZip),
                 get4326_ESRI_WKTContent());
-    }
-
-    /**
-     * Saves the feature source contents into a zipped shapefile, returns the output as a byte array
-     */
-    byte[] writeOut(FeatureCollection fc, long maxShpSize, long maxDbfSize) throws IOException {
-        ShapeZipOutputFormat zip = new ShapeZipOutputFormat();
-        zip.setMaxDbfSize(maxDbfSize);
-        zip.setMaxShpSize(maxShpSize);
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        FeatureCollectionResponse fct =
-                FeatureCollectionResponse.adapt(WfsFactory.eINSTANCE.createFeatureCollectionType());
-        fct.getFeature().add(fc);
-        zip.write(fct, bos, op);
-        return bos.toByteArray();
-    }
-
-    /**
-     * Saves the feature source contents into a zipped shapefile, returns the output as a byte array
-     */
-    byte[] writeOut(FeatureCollection fc) throws IOException {
-        ShapeZipOutputFormat zip = new ShapeZipOutputFormat();
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        FeatureCollectionResponse fct =
-                FeatureCollectionResponse.adapt(WfsFactory.eINSTANCE.createFeatureCollectionType());
-        fct.getFeature().add(fc);
-        zip.write(fct, bos, op);
-        return bos.toByteArray();
     }
 
     private File createTempFolder(String prefix) throws IOException {
