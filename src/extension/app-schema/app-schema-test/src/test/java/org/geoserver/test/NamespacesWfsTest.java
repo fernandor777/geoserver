@@ -9,6 +9,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.Map;
@@ -414,6 +415,41 @@ public final class NamespacesWfsTest extends AbstractAppSchemaTestSupport {
         assertTrue(output.indexOf("st_gml31:Station_gml31") > -1);
         // check test1 namespace injected:
         assertTrue(output.indexOf("xmlns:test1=\"http://www.test1.org/test1\"") >= 0);
+    }
+
+    /** Test a request with a different prefix for feature namespace, WFS 2.0.0 GML 3.2 version */
+    @Test
+    public void testOtherPrefixGml32() throws Exception {
+        String wfsQuery =
+                IOUtils.toString(
+                        getClass()
+                                .getClassLoader()
+                                .getResourceAsStream(
+                                        "test-data/stations/stationsAnotherPrefixQueryWfs200.xml"),
+                        StandardCharsets.UTF_8);
+        Document document = postAsDOM("wfs", wfsQuery);
+        checkCount(
+                WFS20_XPATH_ENGINE,
+                document,
+                1,
+                "//wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32");
+    }
+
+    @Test
+    public void testOtherPrefixGml31() throws Exception {
+        String wfsQuery =
+                IOUtils.toString(
+                        getClass()
+                                .getClassLoader()
+                                .getResourceAsStream(
+                                        "test-data/stations/stationsAnotherPrefixQueryWfs110.xml"),
+                        StandardCharsets.UTF_8);
+        Document document = postAsDOM("wfs", wfsQuery);
+        checkCount(
+                WFS11_XPATH_ENGINE,
+                document,
+                1,
+                "//wfs:FeatureCollection/gml:featureMember/st_gml31:Station_gml31");
     }
 
     private void addTestNamespaceToCatalog() {
