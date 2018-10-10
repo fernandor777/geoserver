@@ -78,13 +78,8 @@ class GridSetBuilder {
         // if CRS axis order is NORTH_EAST (y,x) set to true, else false
         boolean yCoordinateFirst = false;
         try {
-            // fix for EPSG:4326 returning x,y
-            if ("EPSG:4326".equals(epsgCode)) {
-                yCoordinateFirst = true;
-            } else {
-                CoordinateReferenceSystem crsNoForceOrder = CRS.decode(epsgCode, false);
-                yCoordinateFirst = CRS.getAxisOrder(crsNoForceOrder) == CRS.AxisOrder.NORTH_EAST;
-            }
+            CoordinateReferenceSystem crsNoForceOrder = CRS.decode("urn:ogc:def:crs:" + epsgCode);
+            yCoordinateFirst = CRS.getAxisOrder(crsNoForceOrder) == CRS.AxisOrder.NORTH_EAST;
         } catch (FactoryException e) {
             throw new ServiceException(e);
         }
