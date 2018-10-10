@@ -4,8 +4,6 @@
  */
 package org.geoserver.wms.mapbox;
 
-import static org.geoserver.wms.mapbox.MapBoxTileBuilderFactory.MIME_TYPE;
-
 import java.awt.Rectangle;
 import java.io.IOException;
 import java.util.Map;
@@ -21,8 +19,10 @@ import org.locationtech.jts.geom.Geometry;
 public class MapBoxTileBuilder implements VectorTileBuilder {
 
     private VectorTileEncoder encoder;
+    private String mimeType;
 
-    public MapBoxTileBuilder(Rectangle mapSize, ReferencedEnvelope mapArea) {
+    public MapBoxTileBuilder(Rectangle mapSize, ReferencedEnvelope mapArea, String mimeType) {
+        this.mimeType = mimeType;
         final int extent = Math.max(mapSize.width, mapSize.height);
         final int polygonClipBuffer = extent / 32;
         final boolean autoScale = false;
@@ -43,6 +43,6 @@ public class MapBoxTileBuilder implements VectorTileBuilder {
     @Override
     public RawMap build(WMSMapContent mapContent) throws IOException {
         byte[] contents = encoder.encode();
-        return new RawMap(mapContent, contents, MIME_TYPE);
+        return new RawMap(mapContent, contents, mimeType);
     }
 }

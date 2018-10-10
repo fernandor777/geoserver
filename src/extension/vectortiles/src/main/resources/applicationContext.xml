@@ -51,11 +51,25 @@
   </bean>
     
   <bean id="wmsMapBoxBuilderFactory" class="org.geoserver.wms.mapbox.MapBoxTileBuilderFactory">
+  	<constructor-arg value="application/x-protobuf;type=mapbox-vector"/>
+  	<constructor-arg value="pbf"/>
+  </bean>
+  <bean id="wmsMapBoxProperBuilderFactory" class="org.geoserver.wms.mapbox.MapBoxTileBuilderFactory">
+  	<constructor-arg value="application/vnd.mapbox-vector-tile"/>
   </bean>
 
   <bean id="wmsMapBoxMapOutputFormat" class="org.geoserver.wms.vector.VectorTileMapOutputFormat">
     <constructor-arg ref="wms"/>
     <constructor-arg ref="wmsMapBoxBuilderFactory"/>
+    <property name="clipToMapBounds" value="true" />
+    <property name="transformToScreenCoordinates" value="true" />
+     <property name="overSamplingFactor" value="2.0">
+      <description>Sub-pixel accuracy - higher value means less generalization (higher resolution results)</description>
+    </property>
+  </bean>
+  <bean id="wmsMapBoxProperMapOutputFormat" class="org.geoserver.wms.vector.VectorTileMapOutputFormat">
+    <constructor-arg ref="wms"/>
+    <constructor-arg ref="wmsMapBoxProperBuilderFactory"/>
     <property name="clipToMapBounds" value="true" />
     <property name="transformToScreenCoordinates" value="true" />
      <property name="overSamplingFactor" value="2.0">
