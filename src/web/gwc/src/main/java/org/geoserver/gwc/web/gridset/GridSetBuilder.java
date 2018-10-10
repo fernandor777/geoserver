@@ -6,6 +6,7 @@
 package org.geoserver.gwc.web.gridset;
 
 import java.util.List;
+import org.geoserver.platform.ServiceException;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
 import org.geowebcache.GeoWebCacheException;
@@ -14,6 +15,7 @@ import org.geowebcache.grid.Grid;
 import org.geowebcache.grid.GridSet;
 import org.geowebcache.grid.GridSetFactory;
 import org.geowebcache.grid.SRS;
+import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 class GridSetBuilder {
@@ -73,8 +75,20 @@ class GridSetBuilder {
         final double pixelSize = GridSetFactory.DEFAULT_PIXEL_SIZE_METER;
         final int tileWidth = info.getTileWidth();
         final int tileHeight = info.getTileHeight();
-        final boolean yCoordinateFirst = false;
-
+        // if CRS axis order is NORTH_EAST (y,x) set to true, else false
+        boolean yCoordinateFirst = false;
+        try {
+            // fix for EPSG:4326 returning x,y
+            if ("EPSG:4326".equals(epsgCode)) {
+                yCoordinateFirst = true;
+            } else {
+                CoordinateReferenceSystem crsNoForceOrder = CRS.decode(epsgCode, false);
+                yCoordinateFirst = CRS.getAxisOrder(crsNoForceOrder) == CRS.AxisOrder.NORTH_EAST;
+            }
+        } catch (FactoryException e) {
+            throw new ServiceException(e);
+        }
+        // create GridSet
         GridSet gridSet =
                 GridSetFactory.createGridSet(
                         name,
