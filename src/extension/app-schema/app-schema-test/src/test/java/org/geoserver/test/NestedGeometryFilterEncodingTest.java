@@ -397,30 +397,6 @@ public class NestedGeometryFilterEncodingTest extends AbstractAppSchemaTestSuppo
     }
 
     @Test
-    public void testNesteGeometryFilterOnNonExistentProperty() throws Exception {
-        // make sure nested filters encoding is enabled, otherwise skip test
-        assumeTrue(shouldTestNestedFiltersEncoding(rootMapping));
-
-        PropertyName nestedGeom = ff.property(STATION_NONEXISTENT_NESTED_GEOM);
-        Polygon intersecting = (Polygon) wktReader.read("POLYGON((0 0, -4 4, 0 4, 0 0))");
-        Intersects intersects = ff.intersects(nestedGeom, ff.literal(intersecting));
-
-        try {
-            checkPostPreFilterSplitting(intersects);
-            fail("Expected IllegalArgumentException to be thrown, but none was thrown instead");
-        } catch (IllegalArgumentException iae) {
-            String errorMessage = iae.getMessage();
-            assertTrue(errorMessage.contains("not_there_geometry"));
-            assertTrue(errorMessage.contains("not found in type"));
-        } catch (Exception other) {
-            fail(
-                    "Expected IllegalArgumentException to be thrown, but "
-                            + other.getClass().getName()
-                            + " was thrown instead");
-        }
-    }
-
-    @Test
     public void testNesteGeometryFilterOnNonGeometryProperty() throws Exception {
         // make sure nested filters encoding is enabled, otherwise skip test
         assumeTrue(shouldTestNestedFiltersEncoding(rootMapping));
