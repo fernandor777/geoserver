@@ -112,6 +112,7 @@ import org.opengis.filter.temporal.Ends;
 import org.opengis.filter.temporal.TContains;
 import org.opengis.filter.temporal.TEquals;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.cglib.proxy.LazyLoader;
@@ -1220,10 +1221,14 @@ public class GetFeature {
 
         // figure out the crs the data is in
         CoordinateReferenceSystem crs = source.getSchema().getCoordinateReferenceSystem();
+        // if no native CRS found, find the configured declared CRS
+        if(crs == null) {
+            crs = configuredCRS(primaryTypeName);
+        }
 
         // gather declared CRS
         CoordinateReferenceSystem declaredCRS = WFSReprojectionUtil.getDeclaredCrs(crs, wfsVersion);
-
+        
         // make sure every bbox and geometry that does not have an attached crs will use
         // the declared crs, and then reproject it to the native crs
         Filter transformedFilter = filter;
@@ -1382,6 +1387,23 @@ public class GetFeature {
         dataQuery.setHints(hints);
 
         return dataQuery;
+    }
+
+    /**
+     * find the configured declared CRS for the type name parameter
+     * @param primaryTypeName type name
+     * @return declared CRS on geoserver catalog
+     */
+    protected CoordinateReferenceSystem configuredCRS(QName primaryTypeName) {
+        CoordinateReferenceSystem declaredCRS;
+        String srs = catalog.getFeatureTypeByName(primaryTypeName.getNamespaceURI(), 
+                primaryTypeName.getLocalPart()).getSRS();
+        try {
+            declaredCRS = CRS.decode("urn:x-ogc:def:crs:" + srs);
+        } catch (FactoryException e) {
+            throw new ServiceException(e);
+        }
+        return declaredCRS;
     }
 
     static Integer traverseXlinkDepth(String raw) {

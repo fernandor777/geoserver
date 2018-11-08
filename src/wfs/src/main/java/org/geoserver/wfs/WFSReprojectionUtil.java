@@ -15,6 +15,7 @@ import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.FeatureType;
 import org.opengis.filter.Filter;
 import org.opengis.filter.FilterFactory2;
+import org.opengis.filter.expression.PropertyName;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
@@ -89,6 +90,26 @@ class WFSReprojectionUtil {
         ReprojectingFilterVisitor visitor = new ReprojectingFilterVisitor(ff, schema);
         return (Filter) filter.accept(visitor, null);
     }
+    
+    /**
+     * Reprojects all geometric filter elements to the native CRS of the provided schema,
+     * or default CRS if null
+     *
+     * @param filter
+     * @param schema
+     * @param defaultCrs
+     */
+    public static Filter reprojectFilter(Filter filter, FeatureType schema, CoordinateReferenceSystem defaultCrs) {
+        ReprojectingFilterVisitor visitor = new ReprojectingFilterVisitor(ff, schema) {
+            @Override
+            protected CoordinateReferenceSystem findPropertyCRS(PropertyName propertyName) {
+                CoordinateReferenceSystem crs = super.findPropertyCRS(propertyName);
+                if(crs==null) return defaultCrs;
+                return crs;
+            }
+        };
+        return (Filter) filter.accept(visitor, null);
+    }
 
     /**
      * Convenience method, same as calling {@link #applyDefaultCRS} and then {@link
@@ -101,6 +122,6 @@ class WFSReprojectionUtil {
     public static Filter normalizeFilterCRS(
             Filter filter, FeatureType schema, CoordinateReferenceSystem defaultCRS) {
         Filter defaulted = applyDefaultCRS(filter, defaultCRS);
-        return reprojectFilter(defaulted, schema);
+        return reprojectFilter(defaulted, schema, defaultCRS);
     }
 }
