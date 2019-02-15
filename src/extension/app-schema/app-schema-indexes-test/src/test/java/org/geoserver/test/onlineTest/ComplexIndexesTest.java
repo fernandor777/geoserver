@@ -68,6 +68,14 @@ public class ComplexIndexesTest extends GeoServerSystemTestSupport {
     public static final StationsMappingsSetup stationSetup = new StationsMappingsSetup();
 
     @Test
+    public void testSort() throws Exception {
+        setupXmlUnitNamespaces();
+        String wfsQuery = resourceToString(TEST_DATA_DIR + "/sort-query.xml");
+        Document responseDoc = postAsDOM("wfs", wfsQuery);
+        responseDoc.toString();
+    }
+
+    @Test
     public void testPagination() throws Exception {
         // pagination-test-query.xml
         setupXmlUnitNamespaces();
