@@ -15,6 +15,7 @@ import org.geoserver.catalog.event.CatalogListener;
 import org.geoserver.catalog.event.CatalogModifyEvent;
 import org.geoserver.catalog.event.CatalogPostModifyEvent;
 import org.geoserver.catalog.event.CatalogRemoveEvent;
+import org.geoserver.platform.GeoServerExtensions;
 import org.geotools.data.DataAccess;
 import org.geotools.data.solr.SolrDataStore;
 import org.geotools.data.solr.SolrLayerConfiguration;
@@ -29,12 +30,7 @@ import org.opengis.feature.type.Name;
  */
 public class SolrFeatureTypeCallback implements FeatureTypeCallback, CatalogListener {
 
-    Catalog catalog;
-
-    public SolrFeatureTypeCallback(Catalog catalog) {
-        this.catalog = catalog;
-        catalog.addListener(this);
-    }
+    public SolrFeatureTypeCallback() {}
 
     @Override
     public boolean canHandle(
@@ -103,7 +99,7 @@ public class SolrFeatureTypeCallback implements FeatureTypeCallback, CatalogList
                 // go directly to the resource pool to avoid security wrappers
                 try {
                     DataAccess<? extends FeatureType, ? extends Feature> dataStore =
-                            catalog.getResourcePool().getDataStore(ft.getStore());
+                            getCatalog().getResourcePool().getDataStore(ft.getStore());
                     if (dataStore instanceof SolrDataStore) {
                         SolrDataStore solr = (SolrDataStore) dataStore;
                         solr.getSolrConfigurations().remove(slc.getLayerName());
@@ -141,7 +137,7 @@ public class SolrFeatureTypeCallback implements FeatureTypeCallback, CatalogList
         // go directly to the resource pool to avoid security wrappers
         try {
             DataAccess<? extends FeatureType, ? extends Feature> dataStore =
-                    catalog.getResourcePool().getDataStore(ft.getStore());
+                    getCatalog().getResourcePool().getDataStore(ft.getStore());
             if (dataStore instanceof SolrDataStore) {
                 SolrDataStore solr = (SolrDataStore) dataStore;
                 solr.getSolrConfigurations().remove(slc.getLayerName());
@@ -151,14 +147,41 @@ public class SolrFeatureTypeCallback implements FeatureTypeCallback, CatalogList
         } catch (IOException e) {
             throw new CatalogException("Failed to remove layer configuration from data store", e);
         }
-        FeatureTypeInfo proxy = catalog.getFeatureType(ft.getId());
+        FeatureTypeInfo proxy = getCatalog().getFeatureType(ft.getId());
         proxy.setNativeName(ft.getName());
         proxy.getMetadata().put(SolrLayerConfiguration.KEY, slc);
-        catalog.save(proxy);
+        getCatalog().save(proxy);
     }
 
     @Override
     public void reloaded() {
         // nothing to do
+    }
+
+    Catalog getCatalog() {
+        return (Catalog) GeoServerExtensions.bean("catalog");
+    }
+
+    /**
+     * Spring bean used for doing initializing logic with beans Catalog and SolrFeatureTypeCallback
+     * available and loaded.
+     *
+     * @author Fernando Mino - Geosolutions
+     */
+    public static class CatalogInitializer {
+
+        private Catalog catalog;
+        private SolrFeatureTypeCallback solrFeatureTypeCallback;
+
+        public CatalogInitializer(
+                Catalog catalog, SolrFeatureTypeCallback solrFeatureTypeCallback) {
+            super();
+            this.catalog = catalog;
+            this.solrFeatureTypeCallback = solrFeatureTypeCallback;
+        }
+
+        public void initBean() {
+            catalog.addListener(solrFeatureTypeCallback);
+        }
     }
 }
