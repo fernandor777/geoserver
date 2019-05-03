@@ -18,6 +18,10 @@ import org.geoserver.security.web.usergroup.UserGroupServicePanel;
 public class LDAPUserGroupServicePanel extends UserGroupServicePanel<LDAPUserGroupServiceConfig> {
     private static final long serialVersionUID = -5052166946618920800L;
 
+    private static final String USE_NESTED_PARENT_GROUPS = "useNestedParentGroups";
+    private static final String MAX_GROUP_SEARCH_LEVEL = "maxGroupSearchLevel";
+    private static final String NESTED_GROUP_SEARCH_FILTER = "nestedGroupSearchFilter";
+
     class LDAPAuthenticationPanel extends WebMarkupContainer {
 
         private static final long serialVersionUID = 6533128678666053350L;
@@ -58,6 +62,10 @@ public class LDAPUserGroupServicePanel extends UserGroupServicePanel<LDAPUserGro
         add(new TextField<String>("userFilter"));
         add(new TextField<String>("allUsersSearchFilter"));
         add(new TextField<String>("populatedAttributes"));
+        // hierarchical groups configurations
+        add(new CheckBox(USE_NESTED_PARENT_GROUPS));
+        add(new TextField<String>(MAX_GROUP_SEARCH_LEVEL));
+        add(new TextField<String>(NESTED_GROUP_SEARCH_FILTER));
 
         /** privileged account for querying the LDAP server (if needed) */
         add(

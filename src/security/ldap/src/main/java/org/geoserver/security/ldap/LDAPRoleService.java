@@ -17,7 +17,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 import javax.naming.directory.DirContext;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.geoserver.security.GeoServerRoleService;
 import org.geoserver.security.GeoServerRoleStore;
 import org.geoserver.security.config.SecurityNamedServiceConfig;
@@ -27,6 +30,8 @@ import org.geotools.util.logging.Logging;
 import org.springframework.ldap.core.AuthenticatedLdapEntryContextCallback;
 import org.springframework.ldap.core.DirContextOperations;
 import org.springframework.ldap.core.LdapEntryIdentification;
+import org.springframework.security.ldap.SpringSecurityLdapTemplate;
+import org.springframework.util.Assert;
 
 /**
  * LDAP implementation of {@link GeoServerRoleService}
@@ -109,7 +114,50 @@ public class LDAPRoleService extends LDAPBaseSecurityService implements GeoServe
                     }
                 });
 
+        // if nested groups search is activated, retrieve all children role's userNames
+        if (useNestedGroups) {
+            Set<GeoServerRole> childrenRoles = getChildrenRoles(role);
+            Set<GeoServerRole> navigatedRoles = new HashSet<>();
+            navigatedRoles.add(role);
+            for (GeoServerRole erole : childrenRoles) {
+                SortedSet<String> userNamesForRole =
+                        getUserNamesForRoleNested(erole, navigatedRoles, 1);
+                users.addAll(userNamesForRole);
+            }
+        }
+
         return Collections.unmodifiableSortedSet(users);
+    }
+
+    private SortedSet<String> getUserNamesForRoleNested(
+            GeoServerRole role, final Set<GeoServerRole> navigatedRoles, int depth)
+            throws IOException {
+        final SortedSet<String> users = new TreeSet<String>();
+        if (depth >= maxGroupSearchLevel) return users;
+
+        authenticateIfNeeded(
+                new AuthenticatedLdapEntryContextCallback() {
+
+                    @Override
+                    public void executeWithContext(
+                            DirContext ctx, LdapEntryIdentification ldapEntryIdentification) {
+                        fillUsersForRole(ctx, users, role);
+                    }
+                });
+
+        // if nested groups search is activated, retrieve all children role's userNames
+        if (useNestedGroups) {
+            Set<GeoServerRole> childrenRoles = getChildrenRoles(role);
+            for (GeoServerRole erole : childrenRoles) {
+                if (!navigatedRoles.contains(erole)) {
+                    navigatedRoles.add(role);
+                    SortedSet<String> userNamesForRole =
+                            getUserNamesForRoleNested(erole, navigatedRoles, depth + 1);
+                    users.addAll(userNamesForRole);
+                }
+            }
+        }
+        return users;
     }
 
     @Override
@@ -125,7 +173,23 @@ public class LDAPRoleService extends LDAPBaseSecurityService implements GeoServe
                     }
                 });
 
+        if (useNestedGroups) {
+            for (GeoServerRole erole : roles) {
+                searchNestedParentRoles(erole, roles, 1);
+            }
+        }
+
         return Collections.unmodifiableSortedSet(roles);
+    }
+
+    private void searchNestedParentRoles(GeoServerRole role, Set<GeoServerRole> roles, int depth) {
+        if (depth >= maxGroupSearchLevel) return;
+        for (GeoServerRole erole : getParentRolesbyMember(role)) {
+            if (!roles.contains(erole)) {
+                roles.add(erole);
+                searchNestedParentRoles(erole, roles, depth + 1);
+            }
+        }
     }
 
     /** Assume role name = group name */
@@ -307,5 +371,99 @@ public class LDAPRoleService extends LDAPBaseSecurityService implements GeoServe
                     }
                 });
         return count.get();
+    }
+
+    private String normalizeGroupName(String role) {
+        if (role.startsWith("ROLE_")) {
+            // remove standard role prefix
+            role = role.substring(5);
+        }
+        return role;
+    }
+
+    private Set<GeoServerRole> getChildrenRoles(final GeoServerRole role) {
+        Assert.notNull(role, "Geoserver role shouldn't be null.");
+        String roleName = normalizeGroupName(role.getAuthority());
+        final Set<String> membersDns = new HashSet<>();
+        final Set<GeoServerRole> childs = new HashSet<>();
+        authenticateIfNeeded(
+                new AuthenticatedLdapEntryContextCallback() {
+                    @Override
+                    public void executeWithContext(
+                            DirContext ctx, LdapEntryIdentification ldapEntryIdentification) {
+                        SpringSecurityLdapTemplate authTemplate =
+                                LDAPUtils.getLdapTemplateInContext(ctx, template);
+                        membersDns.addAll(
+                                authTemplate
+                                        .searchForSingleAttributeValues(
+                                                groupSearchBase,
+                                                groupNameFilter,
+                                                new String[] {roleName},
+                                                groupMembershipAttribute)
+                                        .stream()
+                                        .filter(x -> x.contains(groupSearchBase))
+                                        .collect(Collectors.toSet()));
+                    }
+                });
+        for (String dn : membersDns) {
+            String cnFromDn = extractGroupCnFromDn(dn);
+            if (StringUtils.isNotBlank(cnFromDn))
+                try {
+                    childs.add(createRoleObject(cnFromDn));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+        }
+        return childs;
+    }
+
+    private Set<GeoServerRole> getParentRolesbyMember(final GeoServerRole role) {
+        if (role == null) return Collections.emptySet();
+        final Set<GeoServerRole> parents = new HashSet<>();
+        String roleDn = getRoleDn(role);
+        authenticateIfNeeded(
+                new AuthenticatedLdapEntryContextCallback() {
+                    @Override
+                    public void executeWithContext(
+                            DirContext ctx, LdapEntryIdentification ldapEntryIdentification) {
+                        SpringSecurityLdapTemplate authTemplate =
+                                LDAPUtils.getLdapTemplateInContext(ctx, template);
+                        Set<String> parentGroupsNames =
+                                authTemplate.searchForSingleAttributeValues(
+                                        groupSearchBase,
+                                        nestedGroupSearchFilter,
+                                        new String[] {roleDn},
+                                        groupNameAttribute);
+                        for (String eparent : parentGroupsNames) {
+                            try {
+                                parents.add(createRoleObject(eparent));
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    }
+                });
+        return parents;
+    }
+
+    private String getRoleDn(GeoServerRole role) {
+        String roleName = normalizeGroupName(role.getAuthority());
+        final MutableObject<String> roleDnReference = new MutableObject<String>(null);
+        authenticateIfNeeded(
+                new AuthenticatedLdapEntryContextCallback() {
+                    @Override
+                    public void executeWithContext(
+                            DirContext ctx, LdapEntryIdentification ldapEntryIdentification) {
+                        String dn =
+                                LDAPUtils.getLdapTemplateInContext(ctx, template)
+                                        .searchForSingleEntry(
+                                                groupSearchBase,
+                                                groupNameFilter,
+                                                new String[] {roleName})
+                                        .getNameInNamespace();
+                        roleDnReference.setValue(dn);
+                    }
+                });
+        return roleDnReference.getValue();
     }
 }

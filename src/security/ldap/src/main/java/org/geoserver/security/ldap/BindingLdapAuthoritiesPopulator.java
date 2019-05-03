@@ -5,13 +5,16 @@
  */
 package org.geoserver.security.ldap;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.SearchControls;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.ldap.core.AuthenticatedLdapEntryContextCallback;
@@ -20,6 +23,7 @@ import org.springframework.ldap.core.DirContextOperations;
 import org.springframework.ldap.core.DistinguishedName;
 import org.springframework.ldap.core.LdapEntryIdentification;
 import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.ldap.core.support.AbstractContextMapper;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.ldap.SpringSecurityLdapTemplate;
@@ -67,6 +71,15 @@ public class BindingLdapAuthoritiesPopulator implements LdapAuthoritiesPopulator
 
     private String rolePrefix = "ROLE_";
     private boolean convertToUpperCase = true;
+
+    /** Activates hierarchical nested parent groups search */
+    private boolean useNestedParentGroups = false;
+
+    /** The max recursion level for search Hierarchical groups */
+    private int maxGroupSearchLevel = 10;
+
+    /** Pattern used for nested group filtering */
+    private String nestedGroupSearchFilter = "(member={0})";
 
     // ~ Constructors
     // ===================================================================================================
@@ -119,6 +132,7 @@ public class BindingLdapAuthoritiesPopulator implements LdapAuthoritiesPopulator
      *     ldap server prior to the search operations).
      * @return the set of roles granted to the user.
      */
+    @Override
     public final Collection<GrantedAuthority> getGrantedAuthorities(
             final DirContextOperations user, final String username) {
         return getGrantedAuthorities(user, username, null);
@@ -146,6 +160,8 @@ public class BindingLdapAuthoritiesPopulator implements LdapAuthoritiesPopulator
         if (password != null) {
             // authenticate and execute role extraction in the authenticated
             // context
+            Supplier<DirContext> ctxSupplier =
+                    () -> ldapTemplate.getContextSource().getContext(userDn, password);
             ldapTemplate.authenticate(
                     DistinguishedName.EMPTY_PATH,
                     userDn,
@@ -155,7 +171,7 @@ public class BindingLdapAuthoritiesPopulator implements LdapAuthoritiesPopulator
                         @Override
                         public void executeWithContext(
                                 DirContext ctx, LdapEntryIdentification ldapEntryIdentification) {
-                            getAllRoles(user, userDn, result, username, ctx);
+                            getAllRoles(user, userDn, result, username, ctxSupplier);
                         }
                     });
         } else {
@@ -166,7 +182,7 @@ public class BindingLdapAuthoritiesPopulator implements LdapAuthoritiesPopulator
     }
 
     public Set<GrantedAuthority> getGroupMembershipRoles(
-            final DirContext ctx, String userDn, String username) {
+            Supplier<DirContext> ctxSupplier, String userDn, String username) {
         if (getGroupSearchBase() == null) {
             return new HashSet<GrantedAuthority>();
         }
@@ -189,28 +205,107 @@ public class BindingLdapAuthoritiesPopulator implements LdapAuthoritiesPopulator
         SpringSecurityLdapTemplate authTemplate;
 
         authTemplate =
-                (SpringSecurityLdapTemplate) LDAPUtils.getLdapTemplateInContext(ctx, ldapTemplate);
-        Set<String> userRoles =
-                authTemplate.searchForSingleAttributeValues(
+                (SpringSecurityLdapTemplate)
+                        LDAPUtils.getLdapTemplateInContext(ctxSupplier, ldapTemplate);
+
+        // Get ldap groups in form of Pair<String,String> -> Pair<name,dn>
+        final String formattedFilter = MessageFormat.format(groupSearchFilter, userDn);
+        List<Pair<String, String>> userRolesNameDn =
+                authTemplate.search(
                         getGroupSearchBase(),
-                        groupSearchFilter,
-                        new String[] {userDn, username},
-                        groupRoleAttribute);
+                        formattedFilter,
+                        new AbstractContextMapper<Pair<String, String>>() {
+                            @Override
+                            protected Pair<String, String> doMapFromContext(
+                                    DirContextOperations ctx) {
+                                String name = ctx.getStringAttribute(groupRoleAttribute);
+                                String dn = ctx.getNameInNamespace();
+                                return Pair.of(name, dn);
+                            }
+                        });
 
         if (logger.isDebugEnabled()) {
-            logger.debug("Roles from search: " + userRoles);
+            logger.debug("Roles from search: " + userRolesNameDn);
         }
 
-        for (String role : userRoles) {
-
+        for (Pair<String, String> roleNameDn : userRolesNameDn) {
+            String role = roleNameDn.getLeft();
+            String dn = roleNameDn.getRight();
             if (convertToUpperCase) {
                 role = role.toUpperCase();
             }
-
             authorities.add(new SimpleGrantedAuthority(rolePrefix + role));
+            // search nested LDAP groups if nested parents is enabled
+            if (useNestedParentGroups)
+                searchNestedGroupMembershipRoles(
+                        ctxSupplier,
+                        dn,
+                        roleNameDn.getLeft(),
+                        authorities,
+                        maxGroupSearchLevel - 1);
+        }
+        return authorities;
+    }
+
+    /** Recursively collect all hierarchical related roles */
+    private void searchNestedGroupMembershipRoles(
+            Supplier<DirContext> ctxSupplier,
+            String groupDn,
+            String groupName,
+            Set<GrantedAuthority> authorities,
+            int depth) {
+
+        if (logger.isDebugEnabled()) {
+            logger.debug(
+                    "Searching for roles for nested group '"
+                            + groupName
+                            + "', DN = "
+                            + "'"
+                            + groupDn
+                            + "', with filter "
+                            + nestedGroupSearchFilter
+                            + " in search base '"
+                            + getGroupSearchBase()
+                            + "'");
         }
 
-        return authorities;
+        SpringSecurityLdapTemplate authTemplate =
+                (SpringSecurityLdapTemplate)
+                        LDAPUtils.getLdapTemplateInContext(ctxSupplier, ldapTemplate);
+        // Get ldap groups in form of Pair<String,String> -> Pair<name,dn>
+        final String formattedFilter = MessageFormat.format(nestedGroupSearchFilter, groupDn);
+        List<Pair<String, String>> groupRolesNameDn =
+                authTemplate.search(
+                        getGroupSearchBase(),
+                        formattedFilter,
+                        new AbstractContextMapper<Pair<String, String>>() {
+                            @Override
+                            protected Pair<String, String> doMapFromContext(
+                                    DirContextOperations ctx) {
+                                String name = ctx.getStringAttribute(groupRoleAttribute);
+                                String dn = ctx.getNameInNamespace();
+                                return Pair.of(name, dn);
+                            }
+                        });
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("Roles from search: " + groupRolesNameDn);
+        }
+
+        for (Pair<String, String> roleNameDn : groupRolesNameDn) {
+            String role = roleNameDn.getLeft();
+            String dn = roleNameDn.getRight();
+            if (convertToUpperCase) {
+                role = role.toUpperCase();
+            }
+            boolean addedSuccesfuly =
+                    authorities.add(new SimpleGrantedAuthority(rolePrefix + role));
+            // search nested Ldap groups,
+            // only if role was added successfully for avoiding circular references
+            if (depth > 0 && addedSuccesfuly)
+                searchNestedGroupMembershipRoles(
+                        ctxSupplier, dn, roleNameDn.getLeft(), authorities, depth - 1);
+        }
     }
 
     protected ContextSource getContextSource() {
@@ -294,10 +389,11 @@ public class BindingLdapAuthoritiesPopulator implements LdapAuthoritiesPopulator
             final String userDn,
             final List<GrantedAuthority> result,
             final String userName,
-            DirContext ctx) {
-        Set<GrantedAuthority> roles = getGroupMembershipRoles(ctx, userDn, userName);
+            Supplier<DirContext> ctxSupplier) {
+        Set<GrantedAuthority> roles = getGroupMembershipRoles(ctxSupplier, userDn, userName);
 
-        Set<GrantedAuthority> extraRoles = getAdditionalRoles(ctx, user, userName);
+        Set<GrantedAuthority> extraRoles =
+                getAdditionalRoles(ctxSupplier != null ? ctxSupplier.get() : null, user, userName);
 
         if (extraRoles != null) {
             roles.addAll(extraRoles);
@@ -308,5 +404,17 @@ public class BindingLdapAuthoritiesPopulator implements LdapAuthoritiesPopulator
         }
 
         result.addAll(roles);
+    }
+
+    public void setUseNestedParentGroups(boolean useNestedParentGroups) {
+        this.useNestedParentGroups = useNestedParentGroups;
+    }
+
+    public void setMaxGroupSearchLevel(int maxGroupSearchLevel) {
+        this.maxGroupSearchLevel = maxGroupSearchLevel;
+    }
+
+    public void setNestedGroupSearchFilter(String nestedGroupSearchFilter) {
+        this.nestedGroupSearchFilter = nestedGroupSearchFilter;
     }
 }

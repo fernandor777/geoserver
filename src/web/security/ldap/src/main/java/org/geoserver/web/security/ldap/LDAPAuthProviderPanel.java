@@ -115,6 +115,9 @@ public class LDAPAuthProviderPanel extends AuthenticationProviderPanel<LDAPSecur
     class LDAPAuthorizationPanel extends AuthorizationPanel {
 
         private static final long serialVersionUID = 7541432269535150812L;
+        private static final String USE_NESTED_PARENT_GROUPS = "useNestedParentGroups";
+        private static final String MAX_GROUP_SEARCH_LEVEL = "maxGroupSearchLevel";
+        private static final String NESTED_GROUP_SEARCH_FILTER = "nestedGroupSearchFilter";
 
         public LDAPAuthorizationPanel(String id) {
             super(id);
@@ -123,6 +126,10 @@ public class LDAPAuthProviderPanel extends AuthenticationProviderPanel<LDAPSecur
             add(new TextField<String>("groupAdminGroup"));
             add(new TextField<String>("groupSearchBase"));
             add(new TextField<String>("groupSearchFilter"));
+            // hierarchical groups configurations
+            add(new CheckBox(USE_NESTED_PARENT_GROUPS));
+            add(new TextField<String>(MAX_GROUP_SEARCH_LEVEL));
+            add(new TextField<String>(NESTED_GROUP_SEARCH_FILTER));
         }
 
         @Override
@@ -132,6 +139,10 @@ public class LDAPAuthProviderPanel extends AuthenticationProviderPanel<LDAPSecur
             get("groupAdminGroup").setDefaultModelObject(null);
             get("groupSearchBase").setDefaultModelObject(null);
             get("groupSearchFilter").setDefaultModelObject(null);
+            // hierarchical groups reset
+            get(USE_NESTED_PARENT_GROUPS).setDefaultModelObject(false);
+            get(MAX_GROUP_SEARCH_LEVEL).setDefaultModelObject(10);
+            get(NESTED_GROUP_SEARCH_FILTER).setDefaultModelObject(null);
         }
     }
 

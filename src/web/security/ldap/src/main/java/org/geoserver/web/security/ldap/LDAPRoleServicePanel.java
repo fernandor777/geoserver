@@ -21,6 +21,10 @@ public class LDAPRoleServicePanel extends RoleServicePanel<LDAPRoleServiceConfig
 
     private static final long serialVersionUID = -67788557484913489L;
 
+    private static final String USE_NESTED_PARENT_GROUPS = "useNestedParentGroups";
+    private static final String MAX_GROUP_SEARCH_LEVEL = "maxGroupSearchLevel";
+    private static final String NESTED_GROUP_SEARCH_FILTER = "nestedGroupSearchFilter";
+
     class LDAPAuthenticationPanel extends FormComponentPanel<String> {
 
         /** serialVersionUID */
@@ -70,6 +74,11 @@ public class LDAPRoleServicePanel extends RoleServicePanel<LDAPRoleServiceConfig
                         target.add(c);
                     }
                 });
+        // hierarchical groups configurations
+        add(new CheckBox(USE_NESTED_PARENT_GROUPS));
+        add(new TextField<String>(MAX_GROUP_SEARCH_LEVEL));
+        add(new TextField<String>(NESTED_GROUP_SEARCH_FILTER));
+
         LDAPAuthenticationPanel authPanel = new LDAPAuthenticationPanel("authenticationPanel");
         authPanel.setVisible(model.getObject().isBindBeforeGroupSearch());
         add(
