@@ -8,7 +8,11 @@ package org.geoserver.wfs.xml.v1_0_0;
 import java.io.Reader;
 import java.util.Iterator;
 import java.util.Map;
+
 import javax.xml.namespace.QName;
+import javax.xml.parsers.SAXParser;
+
+import org.apache.xerces.util.SecurityManager;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.config.GeoServer;
 import org.geoserver.ows.XmlRequestReader;
@@ -19,6 +23,8 @@ import org.geoserver.wfs.xml.WFSURIHandler;
 import org.geotools.util.Version;
 import org.geotools.xsd.Configuration;
 import org.geotools.xsd.Parser;
+import org.xml.sax.SAXNotRecognizedException;
+import org.xml.sax.SAXNotSupportedException;
 
 /**
  * Xml reader for wfs 1.0.0 xml requests.
@@ -66,6 +72,8 @@ public class WfsXmlReader extends XmlRequestReader {
         // set validation based on strict or not
         parser.setValidating(strict.booleanValue());
         WFSURIHandler.addToParser(geoServer, parser);
+        // setup securityManager consumer
+        parser.setParserConfigurationConsumer(WfsXmlReader::setupParserSecurityManager);
 
         // parse
         Object parsed = parser.parse(reader);
@@ -83,5 +91,15 @@ public class WfsXmlReader extends XmlRequestReader {
         }
 
         return parsed;
+    }
+    
+    static void setupParserSecurityManager(SAXParser parser) {
+	SecurityManager secManager = new SecurityManager();
+	secManager.setEntityExpansionLimit(1000);
+	try {
+            parser.setProperty("http://apache.org/xml/properties/security-manager", secManager);
+        } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
+            // nothing to do, security manager should be installed without problems
+        }
     }
 }
