@@ -29,4 +29,4 @@ This section describes most of the extensions available for GeoServer. Other dat
    xslt/index
    wcs20eo/index
    mongodb/index
-   status-monitoring/index
+   system-status/index

@@ -332,9 +332,9 @@
       </modules>
     </profile>
     <profile>
-      <id>status-monitoring</id>
+      <id>system-status</id>
       <modules>
-        <module>status-monitoring</module>
+        <module>system-status</module>
       </modules>
     </profile>
 
@@ -378,7 +378,7 @@
         <module>vectortiles</module>
         <module>ysld</module>
         <module>mongodb</module>
-        <module>status-monitoring</module>
+        <module>system-status</module>
       </modules>
     </profile>
 
@@ -422,7 +422,7 @@
         <module>vectortiles</module>
         <module>ysld</module>
         <module>mongodb</module>
-        <module>status-monitoring</module>
+        <module>system-status</module>
       </modules>
     </profile>
   </profiles>

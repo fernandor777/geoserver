@@ -13,9 +13,9 @@
   </parent>
 
 	<groupId>org.geoserver.extension</groupId>
-	<artifactId>gs-status-monitoring</artifactId>
+	<artifactId>gs-system-status</artifactId>
 	<packaging>jar</packaging>
-	<name>Status Monitoring Extension</name>
+	<name>System Status Extension</name>
 
 	<dependencies>
 		<dependency>
