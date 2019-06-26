@@ -350,10 +350,12 @@ class ComplexGeoJsonWriter {
             // has properties, so not a chained feature resolved as a link
             return false;
         }
-        for (NameImpl key : attributes.keySet()) {
-            if (key != null && key.getLocalPart().equalsIgnoreCase("href")) {
-                // we found a link
-                return true;
+        if (attributes != null) {
+            for (NameImpl key : attributes.keySet()) {
+                if (key != null && "href".equalsIgnoreCase(key.getLocalPart())) {
+                    // we found a link
+                    return true;
+                }
             }
         }
         // no link was found, so not a chained feature resolved as a link
