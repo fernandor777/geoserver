@@ -3,7 +3,7 @@
  * application directory.
  */
 
-package org.geoserver.status.monitoring;
+package org.geoserver.rest.systemstatus;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -14,9 +14,9 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 import org.geoserver.rest.RestBaseController;
-import org.geoserver.status.monitoring.collector.MetricInfo;
-import org.geoserver.status.monitoring.collector.MetricValue;
-import org.geoserver.status.monitoring.collector.Metrics;
+import org.geoserver.systemstatus.MetricInfo;
+import org.geoserver.systemstatus.MetricValue;
+import org.geoserver.systemstatus.Metrics;
 import org.geoserver.test.GeoServerSystemTestSupport;
 import org.junit.Test;
 import org.springframework.mock.web.MockHttpServletResponse;

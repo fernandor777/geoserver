@@ -3,7 +3,7 @@
  * application directory.
  */
 
-package org.geoserver.status.monitoring;
+package org.geoserver.web.systemstatus;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -11,7 +11,6 @@ import static org.junit.Assert.assertTrue;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import org.apache.wicket.util.tester.TagTester;
-import org.geoserver.status.monitoring.web.SystemStatusMonitorPanel;
 import org.geoserver.web.GeoServerWicketTestSupport;
 import org.geoserver.web.admin.StatusPage;
 import org.junit.Before;
@@ -29,7 +28,7 @@ public class SystemStatusMonitorPanelTest extends GeoServerWicketTestSupport {
     @Test
     public void testLoad() throws Exception {
         tester.assertRenderedPage(StatusPage.class);
-        tester.clickLink("tabs:tabs-container:tabs:2:link", true);
+        tester.clickLink("tabs:tabs-container:tabs:3:link", true);
         tester.assertContains("Updated at");
     }
 
@@ -37,7 +36,7 @@ public class SystemStatusMonitorPanelTest extends GeoServerWicketTestSupport {
     public void testUpdate() throws Exception {
         SimpleDateFormat formatter = new SimpleDateFormat(SystemStatusMonitorPanel.datePattern);
         tester.assertRenderedPage(StatusPage.class);
-        tester.clickLink("tabs:tabs-container:tabs:2:link", true);
+        tester.clickLink("tabs:tabs-container:tabs:3:link", true);
         TagTester time1 = tester.getTagByWicketId("time");
         assertNotNull(time1);
         Date firstTime = formatter.parse(time1.getValue());

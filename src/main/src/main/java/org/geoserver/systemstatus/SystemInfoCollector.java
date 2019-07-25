@@ -2,7 +2,7 @@
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
-package org.geoserver.status.monitoring.collector;
+package org.geoserver.systemstatus;
 
 /**
  * To implements to retrieve system information metrics using low level API.

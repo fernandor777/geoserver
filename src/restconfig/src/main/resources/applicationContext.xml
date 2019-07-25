@@ -16,6 +16,7 @@
   <context:component-scan base-package="org.geoserver.security.rest"/>
   <context:component-scan base-package="org.geoserver.catalog.rest"/>
   <context:component-scan base-package="org.geoserver.service.rest"/>
+  <context:component-scan base-package="org.geoserver.rest.systemstatus"/>
   <!-- XStream persister initializer -->
   <bean id="restConfigXStreamPersister" class="org.geoserver.rest.security.RestConfigXStreamPersister" />
 

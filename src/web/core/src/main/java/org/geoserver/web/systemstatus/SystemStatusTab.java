@@ -2,7 +2,7 @@
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
-package org.geoserver.status.monitoring.web;
+package org.geoserver.web.systemstatus;
 
 import java.io.Serializable;
 import org.apache.wicket.Page;

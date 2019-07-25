@@ -2,7 +2,7 @@
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
-package org.geoserver.status.monitoring.collector;
+package org.geoserver.systemstatus;
 
 import java.io.Serializable;
 import java.time.LocalTime;

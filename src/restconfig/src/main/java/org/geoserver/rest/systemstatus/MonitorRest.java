@@ -2,7 +2,7 @@
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
-package org.geoserver.status.monitoring.rest;
+package org.geoserver.rest.systemstatus;
 
 import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.converters.Converter;
@@ -19,9 +19,9 @@ import org.geoserver.rest.ObjectToMapWrapper;
 import org.geoserver.rest.RestBaseController;
 import org.geoserver.rest.converters.XStreamMessageConverter;
 import org.geoserver.rest.wrapper.RestWrapper;
-import org.geoserver.status.monitoring.collector.MetricValue;
-import org.geoserver.status.monitoring.collector.Metrics;
-import org.geoserver.status.monitoring.collector.SystemInfoCollector;
+import org.geoserver.systemstatus.MetricValue;
+import org.geoserver.systemstatus.Metrics;
+import org.geoserver.systemstatus.SystemInfoCollector;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;

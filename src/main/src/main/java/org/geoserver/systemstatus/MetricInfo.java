@@ -2,7 +2,7 @@
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
-package org.geoserver.status.monitoring.collector;
+package org.geoserver.systemstatus;
 
 /** This enum defines the system metrics that can be retrieved by a collector. */
 public enum MetricInfo {

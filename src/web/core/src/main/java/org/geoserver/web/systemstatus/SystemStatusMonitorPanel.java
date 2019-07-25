@@ -2,7 +2,7 @@
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
-package org.geoserver.status.monitoring.web;
+package org.geoserver.web.systemstatus;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -23,9 +23,9 @@ import org.apache.wicket.model.Model;
 import org.apache.wicket.model.PropertyModel;
 import org.apache.wicket.util.time.Duration;
 import org.geoserver.platform.GeoServerExtensions;
-import org.geoserver.status.monitoring.collector.MetricValue;
-import org.geoserver.status.monitoring.collector.Metrics;
-import org.geoserver.status.monitoring.collector.SystemInfoCollector;
+import org.geoserver.systemstatus.MetricValue;
+import org.geoserver.systemstatus.Metrics;
+import org.geoserver.systemstatus.SystemInfoCollector;
 import org.geotools.util.logging.Logging;
 
 /**
