@@ -666,6 +666,9 @@ public class GetMapKvpRequestReader extends KvpRequestReader implements Disposab
             throw new ServiceException("TIME and ELEVATION values cannot be both multivalued");
         }
 
+        // get custom dimensions
+        // TODO
+
         return getMap;
     }
 
