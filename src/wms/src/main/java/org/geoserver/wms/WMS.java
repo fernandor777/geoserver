@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
@@ -1646,6 +1647,31 @@ public class WMS implements ApplicationContextAware {
         return result;
     }
 
+    /**
+     * TODO
+     *
+     * @param dimensionsMap
+     * @param typeInfo
+     * @return
+     */
+    public Filter getDimensionsToFilter(
+            final Map<String, String> rawKVP, final FeatureTypeInfo typeInfo) {
+        CustomDimensionFilterConverter.DefaultValueStrategyFactory defaultValueStrategyFactory =
+                new CustomDimensionFilterConverter.DefaultValueStrategyFactory() {
+                    @Override
+                    public DimensionDefaultValueSelectionStrategy getDefaultValueStrategy(
+                            ResourceInfo resource,
+                            String dimensionName,
+                            DimensionInfo dimensionInfo) {
+                        return WMS.this.getDefaultValueStrategy(
+                                resource, dimensionName, dimensionInfo);
+                    }
+                };
+        final CustomDimensionFilterConverter converter =
+                new CustomDimensionFilterConverter(defaultValueStrategyFactory, ff);
+        return converter.getDimensionsToFilter(rawKVP, typeInfo);
+    }
+
     private List<Object> getNearestMatches(
             ResourceInfo resourceInfo,
             DimensionInfo dimension,
@@ -1877,5 +1903,34 @@ public class WMS implements ApplicationContextAware {
         }
 
         return false;
+    }
+
+    public TreeSet<Object> getDimensionValues(FeatureTypeInfo typeInfo, DimensionInfo dimensionInfo)
+            throws IOException {
+        final FeatureCollection fcollection = getDimensionCollection(typeInfo, dimensionInfo);
+
+        final TreeSet<Object> result = new TreeSet<>();
+        if (dimensionInfo.getPresentation() == DimensionPresentation.LIST
+                || (dimensionInfo.getPresentation() == DimensionPresentation.DISCRETE_INTERVAL
+                        && dimensionInfo.getResolution() == null)) {
+            final UniqueVisitor uniqueVisitor = new UniqueVisitor(dimensionInfo.getAttribute());
+            fcollection.accepts(uniqueVisitor, null);
+            Set<Object> uniqueValues = uniqueVisitor.getUnique();
+            for (Object obj : uniqueValues) {
+                result.add(obj);
+            }
+        } else {
+            final MinVisitor minVisitor = new MinVisitor(dimensionInfo.getAttribute());
+            fcollection.accepts(minVisitor, null);
+            final CalcResult minResult = minVisitor.getResult();
+            if (minResult != CalcResult.NULL_RESULT) {
+                result.add(minResult.getValue());
+                final MaxVisitor maxVisitor = new MaxVisitor(dimensionInfo.getAttribute());
+                fcollection.accepts(maxVisitor, null);
+                result.add(maxVisitor.getMax());
+            }
+        }
+
+        return result;
     }
 }

@@ -376,4 +376,47 @@ public class DimensionsVectorCapabilitiesTest extends WMSDimensionsTestSupport {
         assertXpathEvaluatesTo("elevation", "//wms:Layer/wms:Dimension/@name", dom);
         assertXpathEvaluatesTo("-100/0", "//wms:Layer/wms:Dimension/@default", dom);
     }
+
+    @Test
+    public void testCustomList() throws Exception {
+        setupVectorDimension(
+                "dim_custom", "elevation", DimensionPresentation.LIST, null, UNITS, UNIT_SYMBOL);
+
+        Document dom = dom(get("wms?request=getCapabilities&version=1.3.0"), false);
+        // print(dom);
+
+        // check dimension has been declared
+        assertXpathEvaluatesTo("1", "count(//wms:Layer/wms:Dimension)", dom);
+        assertXpathEvaluatesTo("custom", "//wms:Layer/wms:Dimension/@name", dom);
+        assertXpathEvaluatesTo(UNITS, "//wms:Layer/wms:Dimension/@units", dom);
+        assertXpathEvaluatesTo(UNIT_SYMBOL, "//wms:Layer/wms:Dimension/@unitSymbol", dom);
+        // check we have the extent
+        assertXpathEvaluatesTo("0.0", "//wms:Layer/wms:Dimension/@default", dom);
+        assertXpathEvaluatesTo("0.0,1.0,2.0,3.0", "//wms:Layer/wms:Dimension", dom);
+    }
+
+    @Test
+    public void testCustomContinuous() throws Exception {
+        setupVectorDimension(
+                "dim_custom",
+                "elevation",
+                DimensionPresentation.CONTINUOUS_INTERVAL,
+                null,
+                UNITS,
+                UNIT_SYMBOL);
+
+        Document dom = dom(get("wms?request=getCapabilities&version=1.3.0"), false);
+        // print(dom);
+
+        // check dimension has been declared
+        assertXpathEvaluatesTo("1", "count(//wms:Layer/wms:Dimension)", dom);
+        assertXpathEvaluatesTo("custom", "//wms:Layer/wms:Dimension/@name", dom);
+        assertXpathEvaluatesTo(UNITS, "//wms:Layer/wms:Dimension/@units", dom);
+        assertXpathEvaluatesTo(UNIT_SYMBOL, "//wms:Layer/wms:Dimension/@unitSymbol", dom);
+        // check we have the extent
+        assertXpathEvaluatesTo("1", "count(//wms:Layer/wms:Dimension)", dom);
+        assertXpathEvaluatesTo("custom", "//wms:Layer/wms:Dimension/@name", dom);
+        assertXpathEvaluatesTo("0.0", "//wms:Layer/wms:Dimension/@default", dom);
+        assertXpathEvaluatesTo("0.0/3.0/0", "//wms:Layer/wms:Dimension", dom);
+    }
 }
