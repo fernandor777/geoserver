@@ -132,8 +132,21 @@ abstract class DimensionHelper {
             String metadata;
             String units = customDim.getValue().getUnits();
             String unitSymbol = customDim.getValue().getUnitSymbol();
-            if (!values.isEmpty()) {
-                metadata = getZDomainRepresentation(customDim.getValue(), values);
+            final Optional<Class> dataTypeOpt = getDataType(values);
+            if (dataTypeOpt.isPresent()) {
+                final Class type = dataTypeOpt.get();
+                if (type.isAssignableFrom(Date.class)) {
+                    metadata = getTemporalDomainRepresentation(customDim.getValue(), values);
+                } else if (type.isAssignableFrom(Double.class)) {
+                    metadata = getNumberRepresentation(customDim.getValue(), values);
+                } else {
+                    final List<String> valuesList =
+                            values.stream()
+                                    .filter(x -> x != null)
+                                    .map(x -> x.toString())
+                                    .collect(Collectors.toList());
+                    metadata = getCustomDomainRepresentation(customDim.getValue(), valuesList);
+                }
             } else {
                 metadata = "";
             }
@@ -144,6 +157,10 @@ abstract class DimensionHelper {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    Optional<Class> getDataType(Set<Object> values) {
+        return values.stream().filter(x -> x != null).findFirst().map(Object::getClass);
     }
 
     private Map<String, DimensionInfo> getCustomDimensions(final FeatureTypeInfo typeInfo) {
@@ -333,7 +350,7 @@ abstract class DimensionHelper {
             }
             elevations = dimensions.getElevationDomain();
         }
-        String elevationMetadata = getZDomainRepresentation(elevInfo, elevations);
+        String elevationMetadata = getNumberRepresentation(elevInfo, elevations);
         String defaultValue = getDefaultValueRepresentation(cvInfo, ResourceInfo.ELEVATION, "0");
         writeElevationDimension(
                 elevations,
@@ -442,7 +459,7 @@ abstract class DimensionHelper {
         }
     }
 
-    protected String getZDomainRepresentation(
+    protected String getNumberRepresentation(
             DimensionInfo dimension, TreeSet<? extends Object> values) {
         String elevationMetadata = null;
 
@@ -450,10 +467,10 @@ abstract class DimensionHelper {
 
         if (DimensionPresentation.LIST == dimension.getPresentation()) {
             for (Object val : values) {
-                if (val instanceof Double) {
+                if (val instanceof Number) {
                     buff.append(val);
                 } else {
-                    NumberRange<Double> range = (NumberRange<Double>) val;
+                    NumberRange range = (NumberRange) val;
                     buff.append(range.getMinimum())
                             .append("/")
                             .append(range.getMaximum())
@@ -467,7 +484,7 @@ abstract class DimensionHelper {
                             .replaceAll("\\]", "")
                             .replaceAll(" ", "");
         } else if (DimensionPresentation.CONTINUOUS_INTERVAL == dimension.getPresentation()) {
-            NumberRange<Double> range = getMinMaxZInterval(values);
+            NumberRange range = getMinMaxZInterval(values);
             buff.append(range.getMinimum());
             buff.append("/");
             buff.append(range.getMaximum());
@@ -475,7 +492,7 @@ abstract class DimensionHelper {
 
             elevationMetadata = buff.toString();
         } else if (DimensionPresentation.DISCRETE_INTERVAL == dimension.getPresentation()) {
-            NumberRange<Double> range = getMinMaxZInterval(values);
+            final NumberRange range = getMinMaxZInterval(values);
             buff.append(range.getMinimum());
             buff.append("/");
             buff.append(range.getMaximum());
@@ -485,10 +502,16 @@ abstract class DimensionHelper {
             if (resolution != null) {
                 buff.append(resolution.doubleValue());
             } else {
-                if (values.size() >= 2 && allDoubles(values)) {
+                if (values.size() >= 2 && allNumbers(values)) {
                     int count = 2, i = 2;
                     Double[] zPositions = new Double[count];
-                    for (Object val : values) {
+                    // convert all to double
+                    final List<Double> doubleValues =
+                            values.stream()
+                                    .map(x -> (Number) x)
+                                    .map(Number::doubleValue)
+                                    .collect(Collectors.toList());
+                    for (Object val : doubleValues) {
                         zPositions[count - i--] = (Double) val;
                         if (i == 0) break;
                     }
@@ -592,25 +615,25 @@ abstract class DimensionHelper {
     }
 
     /**
-     * Builds a single Z range from the domain, be it made of Double or NumberRange objects
+     * Builds a single Z range from the domain, be it made of Number or NumberRange objects
      *
      * @param values
      */
     private NumberRange<Double> getMinMaxZInterval(TreeSet<? extends Object> values) {
         Object minValue = values.first();
         Object maxValue = values.last();
-        Double min, max;
+        Number min, max;
         if (minValue instanceof NumberRange) {
-            min = ((NumberRange<Double>) minValue).getMinValue();
+            min = (Number) ((NumberRange) minValue).getMinValue();
         } else {
-            min = (Double) minValue;
+            min = (Number) minValue;
         }
         if (maxValue instanceof NumberRange) {
-            max = ((NumberRange<Double>) maxValue).getMaxValue();
+            max = (Number) ((NumberRange) maxValue).getMaxValue();
         } else {
-            max = (Double) maxValue;
+            max = (Number) maxValue;
         }
-        return new NumberRange<Double>(Double.class, min, max);
+        return new NumberRange(min.getClass(), min, max);
     }
 
     /**
@@ -629,13 +652,13 @@ abstract class DimensionHelper {
     }
 
     /**
-     * Returns true if all the values in the set are Double instances
+     * Returns true if all the values in the set are Number instances
      *
      * @param values
      */
-    private boolean allDoubles(TreeSet<? extends Object> values) {
+    private boolean allNumbers(TreeSet<? extends Object> values) {
         for (Object value : values) {
-            if (!(value instanceof Double)) {
+            if (!(value instanceof Number)) {
                 return false;
             }
         }
@@ -711,7 +734,7 @@ abstract class DimensionHelper {
         String units = di.getUnits();
         String unitSymbol = di.getUnitSymbol();
         if (elevations != null && !elevations.isEmpty()) {
-            elevationMetadata = getZDomainRepresentation(di, elevations);
+            elevationMetadata = getNumberRepresentation(di, elevations);
         } else {
             elevationMetadata = "";
         }
