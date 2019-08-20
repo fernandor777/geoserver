@@ -132,8 +132,21 @@ abstract class DimensionHelper {
             String metadata;
             String units = customDim.getValue().getUnits();
             String unitSymbol = customDim.getValue().getUnitSymbol();
-            if (!values.isEmpty()) {
-                metadata = getZDomainRepresentation(customDim.getValue(), values);
+            final Optional<Class> dataTypeOpt = getDataType(values);
+            if (dataTypeOpt.isPresent()) {
+                final Class type = dataTypeOpt.get();
+                if (type.isAssignableFrom(Date.class)) {
+                    metadata = getTemporalDomainRepresentation(customDim.getValue(), values);
+                } else if (type.isAssignableFrom(Double.class)) {
+                    metadata = getZDomainRepresentation(customDim.getValue(), values);
+                } else {
+                    final List<String> valuesList =
+                            values.stream()
+                                    .filter(x -> x != null)
+                                    .map(x -> x.toString())
+                                    .collect(Collectors.toList());
+                    metadata = getCustomDomainRepresentation(customDim.getValue(), valuesList);
+                }
             } else {
                 metadata = "";
             }
@@ -144,6 +157,10 @@ abstract class DimensionHelper {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    Optional<Class> getDataType(Set<Object> values) {
+        return values.stream().filter(x -> x != null).findFirst().map(Object::getClass);
     }
 
     private Map<String, DimensionInfo> getCustomDimensions(final FeatureTypeInfo typeInfo) {

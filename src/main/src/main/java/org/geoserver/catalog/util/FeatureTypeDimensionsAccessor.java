@@ -7,7 +7,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.geoserver.catalog.AttributeTypeInfo;
 import org.geoserver.catalog.DimensionInfo;
@@ -17,19 +16,19 @@ import org.geoserver.catalog.ResourceInfo;
 
 public class FeatureTypeDimensionsAccessor {
 
-	public static final String DIMENSION_PREFIX = "dim_";
-	
-	private final FeatureTypeInfo typeInfo;
+    public static final String DIMENSION_PREFIX = "dim_";
 
-	public FeatureTypeDimensionsAccessor(FeatureTypeInfo typeInfo) {
-		this.typeInfo = typeInfo;
-	}
-	
-	public Map<String, DimensionInfo> getCustomDimensions() {
+    private final FeatureTypeInfo typeInfo;
+
+    public FeatureTypeDimensionsAccessor(FeatureTypeInfo typeInfo) {
+        this.typeInfo = typeInfo;
+    }
+
+    public Map<String, DimensionInfo> getCustomDimensions() {
         return getCustomDimensions(true);
     }
-	
-	public Map<String, DimensionInfo> getCustomDimensions(boolean removePrefix) {
+
+    public Map<String, DimensionInfo> getCustomDimensions(boolean removePrefix) {
         return typeInfo.getMetadata()
                 .entrySet()
                 .stream()
@@ -43,41 +42,47 @@ public class FeatureTypeDimensionsAccessor {
                 .map(
                         e ->
                                 Pair.of(
-                                		removePrefix ? e.getKey().replaceFirst(DIMENSION_PREFIX, "") : e.getKey(),
+                                        removePrefix
+                                                ? e.getKey().replaceFirst(DIMENSION_PREFIX, "")
+                                                : e.getKey(),
                                         (DimensionInfo) e.getValue()))
                 .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
     }
 
-	public Optional<Class> getBinding(String dimensionName) {
-		final Optional<Entry<String, DimensionInfo>> dimEntry = getCustomDimensionByName(dimensionName);
-		final Optional<String> attributeNameOpt = dimEntry.map(x -> x.getValue()).map(x -> x.getAttribute());
-		if (!attributeNameOpt.isPresent()) return Optional.empty();
-		return typeInfo.getAttributes().stream()
-			.filter(a -> Objects.equals(a.getName(), attributeNameOpt.get()))
-			.map(a -> (Class)getBinding(a))
-			.findFirst();
-	}
+    public Optional<Class> getBinding(String dimensionName) {
+        final Optional<Entry<String, DimensionInfo>> dimEntry =
+                getCustomDimensionByName(dimensionName);
+        final Optional<String> attributeNameOpt =
+                dimEntry.map(x -> x.getValue()).map(x -> x.getAttribute());
+        if (!attributeNameOpt.isPresent()) return Optional.empty();
+        return typeInfo.getAttributes()
+                .stream()
+                .filter(a -> Objects.equals(a.getName(), attributeNameOpt.get()))
+                .map(a -> (Class) getBinding(a))
+                .findFirst();
+    }
 
-	private Class<?> getBinding(AttributeTypeInfo attributeTypeInfo) {
-		try {
-			return attributeTypeInfo.getAttribute().getType().getBinding();
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-	}
-	
-	public MetadataMap getMetadataMap() {
-		MetadataMap metadataMap = typeInfo.getMetadata();
-		if (metadataMap == null)
-			throw new IllegalStateException("Unable to get MetadataMap for feature info: " + typeInfo);
-		return metadataMap;
-	}
-	
-	public Optional<Map.Entry<String, DimensionInfo>> getCustomDimensionByName(String dimensionName) {
-		if (dimensionName == null) return Optional.empty();
-		Serializable dimension = getMetadataMap().get(DIMENSION_PREFIX + dimensionName);
-		if (!(dimension instanceof DimensionInfo))
-			return Optional.empty();
-		return Optional.of(Pair.of(dimensionName, (DimensionInfo) dimension));
-	}
+    private Class<?> getBinding(AttributeTypeInfo attributeTypeInfo) {
+        try {
+            return attributeTypeInfo.getAttribute().getType().getBinding();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public MetadataMap getMetadataMap() {
+        MetadataMap metadataMap = typeInfo.getMetadata();
+        if (metadataMap == null)
+            throw new IllegalStateException(
+                    "Unable to get MetadataMap for feature info: " + typeInfo);
+        return metadataMap;
+    }
+
+    public Optional<Map.Entry<String, DimensionInfo>> getCustomDimensionByName(
+            String dimensionName) {
+        if (dimensionName == null) return Optional.empty();
+        Serializable dimension = getMetadataMap().get(DIMENSION_PREFIX + dimensionName);
+        if (!(dimension instanceof DimensionInfo)) return Optional.empty();
+        return Optional.of(Pair.of(dimensionName, (DimensionInfo) dimension));
+    }
 }
