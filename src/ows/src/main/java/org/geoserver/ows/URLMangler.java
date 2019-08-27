@@ -15,7 +15,11 @@ public interface URLMangler {
         /** The link points to a static resource (image, ogc schema, etc. * */
         RESOURCE,
         /** The link points to a dynamic service provided by Geoserver (WFS, WMS, WCS, etc.) */
-        SERVICE
+        SERVICE,
+        /**
+         * The link points to a User interface static resource (javascript files, css files, etc.)
+         */
+        UI_RESOURCE
     };
 
     /**

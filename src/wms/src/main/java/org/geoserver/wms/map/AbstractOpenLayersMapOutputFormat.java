@@ -144,6 +144,9 @@ public abstract class AbstractOpenLayersMapOutputFormat implements GetMapOutputF
             }
             map.put("baseUrl", canonicUrl(baseUrl));
 
+            // build the UI-resource enabled base URL
+            map.put("uiBaseUrl", buildUIBaseUrl(request.getBaseUrl()));
+
             // TODO: replace service path with call to buildURL since it does this
             // same dance
             String servicePath = "wms";
@@ -176,6 +179,18 @@ public abstract class AbstractOpenLayersMapOutputFormat implements GetMapOutputF
         } catch (TemplateException e) {
             throw new ServiceException(e);
         }
+    }
+
+    private String buildUIBaseUrl(String requestURL) {
+        String uiBaseUrl = ResponseUtils.buildURL(requestURL, "/", null, URLType.UI_RESOURCE);
+        final int questionMarkIndex = uiBaseUrl.indexOf("?");
+        if (questionMarkIndex > 0) {
+            uiBaseUrl = uiBaseUrl.substring(0, questionMarkIndex);
+        }
+        while (uiBaseUrl.endsWith("/")) {
+            uiBaseUrl = uiBaseUrl.substring(0, uiBaseUrl.length() - 1);
+        }
+        return uiBaseUrl;
     }
 
     /**

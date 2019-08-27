@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.ArrayUtils;
+import org.geoserver.ows.ProxyAwareMangler;
 import org.geoserver.ows.URLMangler;
 import org.geoserver.ows.URLMangler.URLType;
 import org.geoserver.platform.GeoServerExtensions;
@@ -358,9 +359,14 @@ public class ResponseUtils {
      * @param path the path after the application name
      * @param kvp the GET request parameters
      * @param type URL type
+     * @param omitProxyManglers omits proxy based manglers if value is true
      */
     public static String buildURL(
-            String baseURL, String path, Map<String, String> kvp, URLType type) {
+            String baseURL,
+            String path,
+            Map<String, String> kvp,
+            URLType type,
+            boolean omitProxyManglers) {
         // prepare modifiable parameters
         StringBuilder baseURLBuffer = new StringBuilder(baseURL);
         StringBuilder pathBuffer = new StringBuilder(path != null ? path : "");
@@ -369,6 +375,8 @@ public class ResponseUtils {
 
         // run all of the manglers
         for (URLMangler mangler : GeoServerExtensions.extensions(URLMangler.class)) {
+            // omit proxy based manglers if requested
+            if (omitProxyManglers && mangler instanceof ProxyAwareMangler) continue;
             mangler.mangleURL(baseURLBuffer, pathBuffer, kvpBuffer, type);
         }
 
@@ -391,6 +399,20 @@ public class ResponseUtils {
         }
 
         return result;
+    }
+
+    /**
+     * Builds and mangles a URL given its constitutent components. The components will be eventually
+     * modified by registered {@link URLMangler} instances to handle proxies or add security tokens
+     *
+     * @param baseURL the base URL, containing host, port and application
+     * @param path the path after the application name
+     * @param kvp the GET request parameters
+     * @param type URL type
+     */
+    public static String buildURL(
+            String baseURL, String path, Map<String, String> kvp, URLType type) {
+        return buildURL(baseURL, path, kvp, type, false);
     }
 
     /**

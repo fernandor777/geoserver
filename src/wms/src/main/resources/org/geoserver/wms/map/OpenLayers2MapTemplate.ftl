@@ -4,7 +4,7 @@
     <head>
         <title>OpenLayers map preview</title>
         <!-- Import OL CSS, auto import does not work with our minified OL.js build -->
-        <link rel="stylesheet" type="text/css" href="${baseUrl}/openlayers/theme/default/style.css"/>
+        <link rel="stylesheet" type="text/css" href="${uiBaseUrl}/openlayers/theme/default/style.css"/>
         <!-- Basic CSS definitions -->
         <style type="text/css">
             /* General settings */
@@ -103,7 +103,7 @@
             }
         </style>
         <!-- Import OpenLayers, reduced, wms read only version -->
-        <script src="${baseUrl}/openlayers/OpenLayers.js" type="text/javascript">
+        <script src="${uiBaseUrl}/openlayers/OpenLayers.js" type="text/javascript">
         </script>
         <script defer="defer" type="text/javascript">
             var map;
@@ -548,13 +548,13 @@
                         <option value="fid">FeatureID</option>
                     </select>
                     <input type="text" size="80" id="filter"/>
-                    <img id="updateFilterButton" src="${baseUrl}/openlayers/img/east-mini.png" onClick="updateFilter()" title="Apply filter"/>
-                    <img id="resetFilterButton" src="${baseUrl}/openlayers/img/cancel.png" onClick="resetFilter()" title="Reset filter"/>
+                    <img id="updateFilterButton" src="${uiBaseUrl}/openlayers/img/east-mini.png" onClick="updateFilter()" title="Apply filter"/>
+                    <img id="resetFilterButton" src="${uiBaseUrl}/openlayers/img/cancel.png" onClick="resetFilter()" title="Reset filter"/>
                 </li>
             </ul>
         </div>
         <div id="map">
-            <img id="options" title="Toggle options toolbar" src="${baseUrl}/options.png"/>
+            <img id="options" title="Toggle options toolbar" src="${uiBaseUrl}/options.png"/>
         </div>
         <div id="wrapper">
             <div id="location">location</div>

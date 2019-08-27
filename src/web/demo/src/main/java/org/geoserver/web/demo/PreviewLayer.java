@@ -196,9 +196,9 @@ public class PreviewLayer {
         String ws = getWorkspace();
         if (ws == null || useGlobalRef) {
             // global reference
-            return ResponseUtils.buildURL(base, service, null, URLType.SERVICE);
+            return ResponseUtils.buildURL(base, service, null, URLType.SERVICE, true);
         } else {
-            return ResponseUtils.buildURL(base, ws + "/" + service, null, URLType.SERVICE);
+            return ResponseUtils.buildURL(base, ws + "/" + service, null, URLType.SERVICE, true);
         }
     }
 
@@ -240,7 +240,8 @@ public class PreviewLayer {
         params.put("height", String.valueOf(request.getHeight()));
         params.put("srs", String.valueOf(request.getSRS()));
 
-        return ResponseUtils.buildURL(getBaseURL(), getPath("wms", false), params, URLType.SERVICE);
+        return ResponseUtils.buildURL(
+                getBaseURL(), getPath("wms", false), params, URLType.SERVICE, true);
     }
 
     /**

@@ -16,7 +16,7 @@ import org.geoserver.platform.GeoServerExtensions;
 import org.vfny.geoserver.util.Requests;
 
 /** A URL mangler that replaces the base URL with the proxied one */
-public class ProxifyingURLMangler implements URLMangler {
+public class ProxifyingURLMangler implements ProxyAwareMangler {
 
     public enum Headers {
         FORWARDED("Forwarded"),
@@ -81,7 +81,8 @@ public class ProxifyingURLMangler implements URLMangler {
 
     public void mangleURL(
             StringBuilder baseURL, StringBuilder path, Map<String, String> kvp, URLType type) {
-
+        // Omit in case of UI resource
+        if (type == URLType.UI_RESOURCE) return;
         // first check the system property, then fall back to configuration
         String proxyBase =
                 (GeoServerExtensions.getProperty(Requests.PROXY_PARAM) != null)
