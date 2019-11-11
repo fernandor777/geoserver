@@ -32,6 +32,7 @@ import org.apache.wicket.model.Model;
 import org.apache.wicket.model.ResourceModel;
 import org.geoserver.catalog.AttributeTypeInfo;
 import org.geoserver.catalog.FeatureTypeInfo;
+import org.geoserver.catalog.LayerGroupInfo;
 import org.geoserver.catalog.LayerInfo;
 import org.geoserver.catalog.Predicates;
 import org.geoserver.catalog.ResourceInfo;
@@ -312,6 +313,20 @@ public class GeofenceRulePage extends GeoServerSecuredPage {
                     resultSet.add(it.next().getName());
                 }
             }
+            // add layerGroups
+            try (CloseableIterator<LayerGroupInfo> it =
+                    getCatalog()
+                            .getFacade()
+                            .list(
+                                    LayerGroupInfo.class,
+                                    Predicates.equal("workspace.name", workspaceName),
+                                    null,
+                                    null,
+                                    ff.sort("name", SortOrder.ASCENDING))) {
+                while (it.hasNext()) {
+                    resultSet.add(it.next().getName());
+                }
+            }
         }
 
         return resultSet;
@@ -521,44 +536,49 @@ public class GeofenceRulePage extends GeoServerSecuredPage {
                                 LayerInfo li =
                                         getCatalog()
                                                 .getLayerByName(layerChoice.getConvertedInput());
-                                switch (li.getType()) {
-                                    case VECTOR:
-                                    case REMOTE:
-                                        ruleFormModel.getObject().layerDetails.layerType =
-                                                LayerType.VECTOR;
-                                        break;
-                                    case RASTER:
-                                    case WMS:
-                                    case WMTS:
-                                        ruleFormModel.getObject().layerDetails.layerType =
-                                                LayerType.VECTOR;
-                                        break;
-                                    case GROUP:
-                                        ruleFormModel.getObject().layerDetails.layerType =
-                                                LayerType.LAYERGROUP;
-                                        break;
-                                }
-
-                                if (li.getResource() instanceof FeatureTypeInfo) {
-                                    FeatureTypeInfo fti = (FeatureTypeInfo) li.getResource();
-                                    try {
-                                        for (AttributeTypeInfo ati : fti.attributes()) {
-                                            ruleFormModel
-                                                    .getObject()
-                                                    .layerDetails
-                                                    .attributes
-                                                    .add(
-                                                            new LayerAttribute(
-                                                                    ati.getName(),
-                                                                    ati.getBinding() == null
-                                                                            ? null
-                                                                            : ati.getBinding()
-                                                                                    .getName(),
-                                                                    AccessType.NONE));
-                                        }
-                                    } catch (IOException e) {
-                                        LOGGER.log(Level.WARNING, "Could not fetch attributes.", e);
+                                if (li != null) {
+                                    switch (li.getType()) {
+                                        case VECTOR:
+                                        case REMOTE:
+                                            ruleFormModel.getObject().layerDetails.layerType =
+                                                    LayerType.VECTOR;
+                                            break;
+                                        case RASTER:
+                                        case WMS:
+                                        case WMTS:
+                                            ruleFormModel.getObject().layerDetails.layerType =
+                                                    LayerType.VECTOR;
+                                            break;
+                                        case GROUP:
+                                            ruleFormModel.getObject().layerDetails.layerType =
+                                                    LayerType.LAYERGROUP;
+                                            break;
                                     }
+    
+                                    if (li.getResource() instanceof FeatureTypeInfo) {
+                                        FeatureTypeInfo fti = (FeatureTypeInfo) li.getResource();
+                                        try {
+                                            for (AttributeTypeInfo ati : fti.attributes()) {
+                                                ruleFormModel
+                                                        .getObject()
+                                                        .layerDetails
+                                                        .attributes
+                                                        .add(
+                                                                new LayerAttribute(
+                                                                        ati.getName(),
+                                                                        ati.getBinding() == null
+                                                                                ? null
+                                                                                : ati.getBinding()
+                                                                                        .getName(),
+                                                                        AccessType.NONE));
+                                            }
+                                        } catch (IOException e) {
+                                            LOGGER.log(Level.WARNING, "Could not fetch attributes.", e);
+                                        }
+                                    }
+                                } else {
+                                    // it is not a layer, let's check if it is a layerGroup
+                                    getCatalog().getLayerGroupByName(workspacename, name);
                                 }
                             }
                         }
