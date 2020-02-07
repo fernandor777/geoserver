@@ -34,7 +34,12 @@ import org.geotools.jdbc.JDBCFeatureStore;
 import org.junit.Before;
 import org.junit.Test;
 import org.opengis.feature.type.Name;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /** Contains tests related with JDBC multiple values support. */
 public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSupport {
@@ -197,6 +202,32 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         JSONObject json = (JSONObject) getAsJSON(request);
         JSONArray features = json.getJSONArray("features");
         assertEquals(2, features.size());
+    }
+    
+    @Test
+    public void testGetAllNormalizedMultiValuesWfsJsonFormat20() throws Exception {
+        // check if this is an online test with a JDBC based data store
+        if (notJdbcBased()) {
+            // not a JDBC online test
+            return;
+        }
+        // execute the WFS 2.0 request
+        String request = "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32"
+                + "&outputFormat=application/json";
+        MockHttpServletResponse response = getAsServletResponse(request);
+        
+        String content = response.getContentAsString();
+        validateJsonOutput(content);
+    }
+    
+    private void validateJsonOutput(String jsonString) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
+        try {
+            objectMapper.readTree(jsonString);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Json format is not valid", e);
+        }
     }
 
     @Test
