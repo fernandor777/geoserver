@@ -50,6 +50,7 @@ import org.geoserver.wms.DefaultWebMapService;
 import org.geoserver.wms.GetMapOutputFormat;
 import org.geoserver.wms.GetMapRequest;
 import org.geoserver.wms.MapProducerCapabilities;
+import org.geoserver.wms.SymbolizersPreProcessorsProvider;
 import org.geoserver.wms.WMS;
 import org.geoserver.wms.WMSInfo;
 import org.geoserver.wms.WMSInfo.WMSInterpolation;
@@ -80,6 +81,7 @@ import org.geotools.process.function.ProcessFunction;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.CRS.AxisOrder;
 import org.geotools.referencing.operation.transform.AffineTransform2D;
+import org.geotools.renderer.SymbolizersPreProcessor;
 import org.geotools.renderer.lite.LabelCache;
 import org.geotools.renderer.lite.RendererUtilities;
 import org.geotools.renderer.lite.RenderingTransformationHelper;
@@ -214,6 +216,9 @@ public class RenderedImageMapOutputFormat extends AbstractMapOutputFormat {
     private final Map<String, MapProducerCapabilities> capabilities =
             new HashMap<String, MapProducerCapabilities>();
 
+    /** Source of {@link SymbolizersPreProcessor} registered extensions */
+    private SymbolizersPreProcessorsProvider symbolizersPreProcessorsProvider;
+
     /** */
     public RenderedImageMapOutputFormat(WMS wms) {
         this(DEFAULT_MAP_FORMAT, wms);
@@ -260,6 +265,17 @@ public class RenderedImageMapOutputFormat extends AbstractMapOutputFormat {
     /** Sets the extension used for the file name in the content disposition header */
     public void setExtension(String extension) {
         this.extension = extension;
+    }
+
+    /** Returns the source of {@link SymbolizersPreProcessor} registered extensions. */
+    public SymbolizersPreProcessorsProvider getSymbolizersPreProcessorsProvider() {
+        return symbolizersPreProcessorsProvider;
+    }
+
+    /** Sets the source of {@link SymbolizersPreProcessor} registered extensions. */
+    public void setSymbolizersPreProcessorsProvider(
+            SymbolizersPreProcessorsProvider symbolizersPreProcessorsProvider) {
+        this.symbolizersPreProcessorsProvider = symbolizersPreProcessorsProvider;
     }
 
     public MapProducerCapabilities getCapabilities(String format) {
@@ -674,7 +690,12 @@ public class RenderedImageMapOutputFormat extends AbstractMapOutputFormat {
      * subclasses of {@link StreamingRenderer}
      */
     protected StreamingRenderer buildRenderer() {
-        return new StreamingRenderer();
+        StreamingRenderer renderer = new StreamingRenderer();
+        if (this.symbolizersPreProcessorsProvider != null) {
+            renderer.addSymbolizersPreProcessors(
+                    this.symbolizersPreProcessorsProvider.getSymbolizerPreProcessors());
+        }
+        return renderer;
     }
 
     private boolean getFormatOptionAsBoolean(

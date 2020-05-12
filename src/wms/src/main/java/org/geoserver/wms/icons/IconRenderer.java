@@ -9,7 +9,10 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.util.Collection;
 import java.util.logging.Logger;
+import org.geoserver.wms.SymbolizersPreProcessorsProvider;
+import org.geoserver.wms.SymbolizersPreProcessorsProviderImpl;
 import org.geotools.data.memory.MemoryFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
@@ -17,6 +20,7 @@ import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.map.FeatureLayer;
 import org.geotools.map.MapContent;
+import org.geotools.renderer.SymbolizersPreProcessor;
 import org.geotools.renderer.lite.StreamingRenderer;
 import org.geotools.styling.FeatureTypeStyle;
 import org.geotools.styling.Graphic;
@@ -73,7 +77,7 @@ public final class IconRenderer {
         graphics.setRenderingHint(
                 RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         graphics.scale(Icons.RENDER_SCALE_FACTOR, Icons.RENDER_SCALE_FACTOR);
-        StreamingRenderer renderer = new StreamingRenderer();
+        StreamingRenderer renderer = buildRenderer();
         renderer.setMapContent(mapContent);
         try {
             try {
@@ -85,6 +89,18 @@ public final class IconRenderer {
             mapContent.dispose();
         }
         return image;
+    }
+
+    private static StreamingRenderer buildRenderer() {
+        StreamingRenderer renderer = new StreamingRenderer();
+        SymbolizersPreProcessorsProvider processorsProvider =
+                SymbolizersPreProcessorsProviderImpl.getInstance();
+        if (processorsProvider != null) {
+            Collection<SymbolizersPreProcessor> preProcessors =
+                    processorsProvider.getSymbolizerPreProcessors();
+            if (preProcessors != null) renderer.addSymbolizersPreProcessors(preProcessors);
+        }
+        return renderer;
     }
 
     private static int findIconSize(Style style) {

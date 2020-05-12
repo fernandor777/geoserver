@@ -15,7 +15,11 @@ import java.io.InputStream;
 import javax.imageio.ImageIO;
 import org.geoserver.data.test.MockData;
 import org.geoserver.data.test.SystemTestData;
+import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.wms.WMSTestSupport;
+import org.geoserver.wms.map.TestingSymbolizerPreProcessor;
+import org.geotools.image.test.ImageAssert;
+import org.geotools.renderer.SymbolizersPreProcessor;
 import org.junit.Test;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -138,5 +142,38 @@ public class GetMapIntegrationTest extends WMSTestSupport {
         BufferedImage bi = ImageIO.read(is);
         IndexColorModel cm = (IndexColorModel) bi.getColorModel();
         assertEquals(Transparency.TRANSLUCENT, cm.getTransparency());
+    }
+
+    /** Tests the {@link SymbolizersPreProcessor} extension execution on WMS GetMap operation. */
+    @Test
+    public void testSymbolizerPreProcessorExtension() throws Exception {
+        // enable the TestiongSymbolizerPreProcessor extension
+        TestingSymbolizerPreProcessor testingSymbolizerPreProcessor =
+                GeoServerExtensions.bean(TestingSymbolizerPreProcessor.class);
+        testingSymbolizerPreProcessor.setEnabled(true);
+        try {
+            MockHttpServletResponse response =
+                    getAsServletResponse(
+                            "wms?bbox="
+                                    + bbox
+                                    + "&styles=&layers="
+                                    + layers
+                                    + "&Format=image/png"
+                                    + "&request=GetMap"
+                                    + "&width=550"
+                                    + "&height=250"
+                                    + "&srs=EPSG:4326&transparent=true");
+            assertEquals("image/png", response.getContentType());
+
+            InputStream is = getBinaryInputStream(response);
+            BufferedImage bi = ImageIO.read(is);
+
+            InputStream expectedInputStream =
+                    this.getClass().getResourceAsStream("getmap-enhanced-symbolizer.png");
+            BufferedImage expectedImage = ImageIO.read(expectedInputStream);
+            ImageAssert.assertEquals(expectedImage, bi, 10);
+        } finally {
+            testingSymbolizerPreProcessor.setEnabled(false);
+        }
     }
 }
