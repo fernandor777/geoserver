@@ -11,12 +11,14 @@ import java.awt.Transparency;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.awt.image.IndexColorModel;
+import java.io.File;
 import java.io.InputStream;
 import javax.imageio.ImageIO;
 import org.geoserver.data.test.MockData;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.wms.WMSTestSupport;
+import org.geoserver.wms.map.HighlightPreProcessor;
 import org.geoserver.wms.map.TestingSymbolizerPreProcessor;
 import org.geotools.image.test.ImageAssert;
 import org.geotools.renderer.SymbolizersPreProcessor;
@@ -25,7 +27,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 public class GetMapIntegrationTest extends WMSTestSupport {
 
-    String bbox = "-2,0,2,6";
+    String bbox = "-1,-1,2,2";
 
     String layers = getLayerId(MockData.BASIC_POLYGONS);
 
@@ -174,6 +176,37 @@ public class GetMapIntegrationTest extends WMSTestSupport {
             ImageAssert.assertEquals(expectedImage, bi, 10);
         } finally {
             testingSymbolizerPreProcessor.setEnabled(false);
+        }
+    }
+    
+    @Test
+    public void testTest() throws Exception {
+        String layers = getLayerId(MockData.POINTS);
+        // enable the TestiongSymbolizerPreProcessor extension
+        HighlightPreProcessor pp =
+                GeoServerExtensions.bean(HighlightPreProcessor.class);
+        pp.setEnabled(true);
+        try {
+            MockHttpServletResponse response =
+                    getAsServletResponse(
+                            "wms?bbox="
+                                    + bbox
+                                    + "&styles=&layers="
+                                    + layers
+                                    + "&Format=image/png"
+                                    + "&request=GetMap"
+                                    + "&width=550"
+                                    + "&height=250"
+                                    + "&srs=EPSG:4326&transparent=true");
+            assertEquals("image/png", response.getContentType());
+
+            InputStream is = getBinaryInputStream(response);
+            BufferedImage bi = ImageIO.read(is);
+
+            File outputfile = new File("/home/fernando/test-test_highlight1.png");
+            ImageIO.write(bi, "png", outputfile);
+        } finally {
+            pp.setEnabled(false);
         }
     }
 }

@@ -8,5 +8,6 @@
 <beans>
 
   <bean id="testingSymbolizerPreProcessor" class="org.geoserver.wms.map.TestingSymbolizerPreProcessor"/>
+  <bean id="highlightPreProcessor" class="org.geoserver.wms.map.HighlightPreProcessor"/>
 
 </beans>
