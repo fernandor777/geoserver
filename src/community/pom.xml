@@ -216,6 +216,12 @@
       </modules>
     </profile>
     <profile>
+      <id>highlight</id>
+      <modules>
+		    <module>highlight</module>
+      </modules>
+    </profile>
+    <profile>
       <id>communityRelease</id>
       <modules>
         <module>arcsde</module>
@@ -279,6 +285,7 @@
         <module>importer-jdbc</module>
         <module>json-ld</module>
         <module>gsr</module>
+        <module>highlight</module>
       </modules>
     </profile>
     <profile>
