@@ -1,0 +1,45 @@
+/* (c) 2020 Open Source Geospatial Foundation - all rights reserved
+ * This code is licensed under the GPL 2.0 license, available at the root
+ * application directory.
+ */
+package org.geoserver.wms.labeling;
+
+import java.awt.image.BufferedImage;
+import java.util.Map;
+
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
+
+import org.geoserver.ows.Dispatcher;
+import org.geotools.renderer.style.ExternalGraphicFactory;
+import org.opengis.feature.Feature;
+import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.filter.expression.Expression;
+
+public class AttributesGlobeGraphicFactory implements ExternalGraphicFactory {
+
+    public static final String GEOSERVER_LABEL = "geoserver/label";
+
+    @Override
+    public Icon getIcon(Feature feature, Expression url, String format, int size) throws Exception {
+        if (!GEOSERVER_LABEL.equalsIgnoreCase(format)) return null;
+        Map<?, ?> kvp = Dispatcher.REQUEST.get().getKvp();
+        SimpleFeature sf = (SimpleFeature) feature;
+        
+        return prototypeIcon();
+    }
+    
+    Icon prototypeIcon() {
+        BufferedImage image = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
+        GlobeBounds bounds = new GlobeBounds(60, 40, 5);
+        GlobeRender.renderGlobe(image.createGraphics(), bounds, 
+                new GlobeRender.GlobeRenderConfiguration(8, 12));
+        return new ImageIcon(image);
+    }
+    
+    private boolean isAttributesGlobeExpression(Expression url) {
+        String urlStr = url.evaluate(null, String.class);
+        return urlStr != null && urlStr.startsWith("label://");
+    }
+
+}
