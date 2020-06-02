@@ -4,86 +4,88 @@
  */
 package org.geoserver.wms.labeling;
 
-import java.awt.Graphics2D;
-import java.awt.geom.Rectangle2D;
-import java.util.Map;
-import java.util.Map.Entry;
+import static java.util.Objects.requireNonNull;
 
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.util.Map;
+
+/** Renders the attributes globes based on the provided attributes map (title, value). */
 public class AttributesGlobeGenerator {
 
     private AttributeGlobeFonts fonts;
     private AttributesGlobeConfiguration configuration;
+    private Map<String, String> attributes;
+
+    private AttributesGlobeBounds attributesGlobeBounds;
+    private BufferedImage image;
     private Graphics2D graphics2d;
-    
-    /**
-     * 
-     * @param attributes map of attributes, key=title value=value
-     */
-    public void generate(Map<String, String> attributes) {
-        AttributesGlobeBounds attributesGlobeBounds = buildAttributesBounds(attributes);
-        
-        
+
+    public AttributesGlobeGenerator(
+            AttributeGlobeFonts fonts,
+            AttributesGlobeConfiguration configuration,
+            Map<String, String> attributes) {
+        super();
+        this.fonts = requireNonNull(fonts);
+        this.configuration = requireNonNull(configuration);
+        this.attributes = requireNonNull(attributes);
     }
-    
-    AttributesGlobeBounds buildAttributesBounds(Map<String, String> attributes) {
+
+    /** Generates the attributes globe image using the provided configurations and attributes. */
+    public BufferedImage generateImage() {
+        // get the calculated bounds
+        attributesGlobeBounds = buildAttributesBounds(attributes);
+        // create the image instance
+        image =
+                new BufferedImage(
+                        (int) Math.ceil(attributesGlobeBounds.getWidth()),
+                        (int) Math.ceil(attributesGlobeBounds.getHeight()),
+                        BufferedImage.TYPE_INT_ARGB);
+        graphics2d = image.createGraphics();
+        // add rendering hints
+        graphics2d.setRenderingHint(
+                RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        // draw the background globe
+        GlobeRender.renderGlobe(
+                graphics2d,
+                attributesGlobeBounds.getGlobeBounds(),
+                configuration.getTailDimensions());
+        // render the attributes text
+        AttributesTextRenderer textRenderer =
+                new AttributesTextRenderer(graphics2d, attributes, attributesGlobeBounds, fonts);
+        textRenderer.render();
+        return image;
+    }
+
+    public AttributesGlobeBounds getBounds() {
+        return attributesGlobeBounds;
+    }
+
+    private AttributesGlobeBounds buildAttributesBounds(Map<String, String> attributes) {
         TextBounds textBounds = calculateTextMaxBounds(attributes);
         GlobeBounds globeBounds = calculateGlobeBounds(textBounds);
-        
+
         return new AttributesGlobeBounds(globeBounds, textBounds, configuration);
     }
-    
-    GlobeBounds calculateGlobeBounds(TextBounds textBounds) {
-        double width = textBounds.getWidth() + configuration.getMargin();
-        double height = textBounds.getHeight() + configuration.getMargin();
-        
+
+    private GlobeBounds calculateGlobeBounds(TextBounds textBounds) {
+        double totalMargins = configuration.getMargin() * 2;
+        double width = textBounds.getWidth() + totalMargins;
+        double height = textBounds.getHeight() + totalMargins;
+
         return new GlobeBounds(width, height, configuration.getRoundCornerRadius());
     }
-    
+
     /**
      * Calculates the max bounds will be used by the text.
-     * 
+     *
      * @param attributes the attributes titles and values Map
      * @return the total computed bounds
      */
-    TextBounds calculateTextMaxBounds(Map<String, String> attributes) {
-        double maxTitleWidth = 0d;
-        double maxValueWidth = 0d;
-        double totalHeight = 0d;
-        for (Entry<String, String> entry : attributes.entrySet()) {
-            TextLineBounds textBounds = calculateTextLineBounds(entry);
-            maxTitleWidth = Math.max(maxTitleWidth, textBounds.getTitleBounds().getWidth());
-            maxValueWidth = Math.max(maxValueWidth, textBounds.getValueBounds().getWidth());
-            totalHeight += configuration.getInterLineSpace() + 
-                    Math.max(textBounds.getTitleBounds().getHeight(), 
-                            textBounds.getValueBounds().getHeight());
-        }
-        return new TextBounds(maxTitleWidth, maxValueWidth, totalHeight);
-    }
-    
-    TextLineBounds calculateTextLineBounds(Entry<String, String> entry) {
-        Rectangle2D titleBounds = fonts.getTitleFont().getStringBounds(entry.getKey() + ": ", 
-                graphics2d.getFontRenderContext());
-        Rectangle2D valueBounds = fonts.getTitleFont().getStringBounds(entry.getValue(), 
-                graphics2d.getFontRenderContext());
-        return new TextLineBounds(titleBounds, valueBounds);
-    }
-    
-    static class TextLineBounds {
-        private final Rectangle2D titleBounds;
-        private final Rectangle2D valueBounds;
-        
-        public TextLineBounds(Rectangle2D titleBounds, Rectangle2D valueBounds) {
-            super();
-            this.titleBounds = titleBounds;
-            this.valueBounds = valueBounds;
-        }
-
-        public Rectangle2D getTitleBounds() {
-            return titleBounds;
-        }
-
-        public Rectangle2D getValueBounds() {
-            return valueBounds;
-        }
+    private TextBounds calculateTextMaxBounds(Map<String, String> attributes) {
+        TextBoundsCalculator calculator =
+                new TextBoundsCalculator(fonts, configuration, attributes);
+        return calculator.calculateTextMaxBounds();
     }
 }

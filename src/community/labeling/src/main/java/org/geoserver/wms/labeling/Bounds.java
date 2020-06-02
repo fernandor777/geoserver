@@ -6,19 +6,16 @@ package org.geoserver.wms.labeling;
 
 import java.io.Serializable;
 
-/**
- * General computed draw bounds.
- */
+/** General computed draw bounds. */
 public class Bounds implements Serializable {
-    
+
     private static final long serialVersionUID = 1L;
-    
+
     private double width;
     private double height;
-    
-    public Bounds() {
-    }
-    
+
+    public Bounds() {}
+
     public Bounds(double width, double height) {
         super();
         this.width = width;

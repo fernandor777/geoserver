@@ -8,4 +8,6 @@
 
 <beans>
     <bean id="attributesGlobeKvpParser" class="org.geoserver.wms.labeling.AttributesGlobeKvpParser"></bean>
+    
+    <bean id="attributesGlobeGetMapCallback" class="org.geoserver.wms.labeling.AttributesGlobeGetMapCallback"></bean>
 </beans>

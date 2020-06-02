@@ -5,20 +5,20 @@
 package org.geoserver.wms.labeling;
 
 import java.io.Serializable;
+import org.geoserver.wms.labeling.GlobeRender.TailDimensions;
 
-/**
- * Configuration class for attributes labeling globe.
- */
+/** Configuration class for attributes labeling globe. */
 public class AttributesGlobeConfiguration implements Serializable {
     private static final long serialVersionUID = 1L;
-    
+
     private int roundCornerRadius = 10;
     private int maxValueChars = 25;
     private int interLineSpace = 4;
     private int margin = 10;
-    
-    public AttributesGlobeConfiguration() {
-    }
+    private int tailHeight = 12;
+    private int tailWidth = 12;
+
+    public AttributesGlobeConfiguration() {}
 
     public int getRoundCornerRadius() {
         return roundCornerRadius;
@@ -52,9 +52,40 @@ public class AttributesGlobeConfiguration implements Serializable {
         this.margin = margin;
     }
 
+    public int getTailHeight() {
+        return tailHeight;
+    }
+
+    public void setTailHeight(int tailHeight) {
+        this.tailHeight = tailHeight;
+    }
+
+    public int getTailWidth() {
+        return tailWidth;
+    }
+
+    public void setTailWidth(int tailWidth) {
+        this.tailWidth = tailWidth;
+    }
+
+    public TailDimensions getTailDimensions() {
+        return new TailDimensions(tailWidth, tailHeight);
+    }
+
     @Override
     public String toString() {
-        return "AttributesGlobeConfiguration [roundCornerRadius=" + roundCornerRadius + ", maxValueChars="
-                + maxValueChars + ", interLineSpace=" + interLineSpace + ", margin=" + margin + "]";
+        return "AttributesGlobeConfiguration [roundCornerRadius="
+                + roundCornerRadius
+                + ", maxValueChars="
+                + maxValueChars
+                + ", interLineSpace="
+                + interLineSpace
+                + ", margin="
+                + margin
+                + ", tailHeight="
+                + tailHeight
+                + ", tailWidth="
+                + tailWidth
+                + "]";
     }
 }
