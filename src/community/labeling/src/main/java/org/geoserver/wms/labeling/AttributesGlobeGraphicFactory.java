@@ -4,7 +4,6 @@
  */
 package org.geoserver.wms.labeling;
 
-import java.awt.image.BufferedImage;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import org.geotools.renderer.style.ExternalGraphicFactory;
@@ -12,6 +11,10 @@ import org.opengis.feature.Feature;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.filter.expression.Expression;
 
+/**
+ * {@link ExternalGraphicFactory} implementation made for rendering the attributes globe label
+ * graphic on WMS output images. Tracks the {@code geoserver/label} format.
+ */
 public class AttributesGlobeGraphicFactory implements ExternalGraphicFactory {
 
     public static final String GEOSERVER_LABEL = "geoserver/label";
@@ -19,19 +22,11 @@ public class AttributesGlobeGraphicFactory implements ExternalGraphicFactory {
     @Override
     public Icon getIcon(Feature feature, Expression url, String format, int size) throws Exception {
         if (!GEOSERVER_LABEL.equalsIgnoreCase(format)) return null;
-        if (feature == null) return prototypeIcon();
+        if (feature != null && !(feature instanceof SimpleFeature)) return null;
+        // if (feature == null) return prototypeIcon(url);
         SimpleFeature sf = (SimpleFeature) feature;
         // build and return the generated image
         AttributesGlobeGraphicProcessor processor = new AttributesGlobeGraphicProcessor(url, sf);
         return new ImageIcon(processor.buildImage());
-    }
-
-    private Icon prototypeIcon() {
-        BufferedImage image = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
-        GlobeBounds bounds = new GlobeBounds(60, 40, 5);
-        GlobeRender.renderGlobe(
-                image.createGraphics(), bounds, new GlobeRender.TailDimensions(8, 12));
-
-        return new ImageIcon(image);
     }
 }

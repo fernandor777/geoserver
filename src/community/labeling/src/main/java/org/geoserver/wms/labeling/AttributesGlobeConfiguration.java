@@ -8,7 +8,7 @@ import java.io.Serializable;
 import org.geoserver.wms.labeling.GlobeRender.TailDimensions;
 
 /** Configuration class for attributes labeling globe. */
-public class AttributesGlobeConfiguration implements Serializable {
+class AttributesGlobeConfiguration implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private int roundCornerRadius = 10;

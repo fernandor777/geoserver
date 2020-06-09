@@ -7,7 +7,7 @@ package org.geoserver.wms.labeling;
 import java.io.Serializable;
 
 /** Holds relevant data for the computed bounds of text inside the attributes globe. */
-public class TextBounds implements Serializable {
+class TextBounds implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

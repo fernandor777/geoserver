@@ -7,7 +7,7 @@ package org.geoserver.wms.labeling;
 import java.io.Serializable;
 
 /** Holds data for the attributes globe computed bounds. */
-public class GlobeBounds implements Serializable {
+class GlobeBounds implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

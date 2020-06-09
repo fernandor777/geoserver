@@ -7,7 +7,7 @@ package org.geoserver.wms.labeling;
 import java.io.Serializable;
 
 /** General computed draw bounds. */
-public class Bounds implements Serializable {
+class Bounds implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

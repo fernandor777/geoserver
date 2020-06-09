@@ -8,7 +8,7 @@ import java.awt.Graphics2D;
 import java.awt.font.FontRenderContext;
 import java.util.Map;
 
-public class AttributesTextRenderer {
+class AttributesTextRenderer {
 
     private Graphics2D graphics2d;
     private Map<String, String> attributes;

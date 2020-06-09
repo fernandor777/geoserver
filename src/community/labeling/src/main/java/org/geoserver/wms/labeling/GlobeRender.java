@@ -14,7 +14,7 @@ import java.awt.geom.Area;
 import java.awt.geom.RoundRectangle2D;
 
 /** Shapes rendering internal functions. */
-public class GlobeRender {
+class GlobeRender {
 
     static final Color BACKGROUND_COLOR = Color.WHITE;
     static final Color STROKE_COLOR = Color.GRAY;

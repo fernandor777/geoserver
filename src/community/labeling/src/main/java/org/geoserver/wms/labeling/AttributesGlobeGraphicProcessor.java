@@ -23,10 +23,11 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.filter.expression.Expression;
 
 /** Builds the attributes globe image based on provided URL and feature. */
-public class AttributesGlobeGraphicProcessor {
+class AttributesGlobeGraphicProcessor {
 
     private static Logger LOG = Logging.getLogger(AttributesGlobeGraphicProcessor.class);
 
+    static final char ESTIMATION_CHAR = '_';
     static final String FONT_SIZE = "fontSize";
     static final String TITLE_FONT_NAME = "titleFontName";
     static final String VALUE_FONT_NAME = "valueFontName";
@@ -134,10 +135,23 @@ public class AttributesGlobeGraphicProcessor {
     }
 
     private void buildAttributesMap() {
+        if (feature != null) {
+            attributes = new LinkedHashMap<String, String>(labelParameter.getAttributes().size());
+            for (String attrName : labelParameter.getAttributes()) {
+                Object value = feature.getAttribute(attrName);
+                attributes.put(attrName, processValue(value));
+            }
+        } else {
+            buildMockAttributesMap();
+        }
+    }
+
+    /** Builds a mock globe image for the style estimator. */
+    private void buildMockAttributesMap() {
         attributes = new LinkedHashMap<String, String>(labelParameter.getAttributes().size());
         for (String attrName : labelParameter.getAttributes()) {
-            Object value = feature.getAttribute(attrName);
-            attributes.put(attrName, processValue(value));
+            attributes.put(
+                    attrName, StringUtils.repeat(ESTIMATION_CHAR, config.getMaxValueChars()));
         }
     }
 

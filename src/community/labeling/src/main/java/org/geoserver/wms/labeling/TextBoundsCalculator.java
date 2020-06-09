@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /** Helper class, calculates text bounds before start the image rendering. */
-public class TextBoundsCalculator {
+class TextBoundsCalculator {
 
     private AttributeGlobeFonts fonts;
     private AttributesGlobeConfiguration configuration;

@@ -4,7 +4,8 @@
  */
 package org.geoserver.wms.labeling;
 
-public class AttributesGlobeBounds {
+/** Compound type holding bounds and configurations. */
+class AttributesGlobeBounds {
 
     private final GlobeBounds globeBounds;
     private final TextBounds textBounds;

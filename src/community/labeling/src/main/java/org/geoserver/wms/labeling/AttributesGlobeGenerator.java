@@ -12,7 +12,7 @@ import java.awt.image.BufferedImage;
 import java.util.Map;
 
 /** Renders the attributes globes based on the provided attributes map (title, value). */
-public class AttributesGlobeGenerator {
+class AttributesGlobeGenerator {
 
     private AttributeGlobeFonts fonts;
     private AttributesGlobeConfiguration configuration;
