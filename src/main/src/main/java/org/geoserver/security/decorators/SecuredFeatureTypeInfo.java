@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.geoserver.catalog.DataStoreInfo;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.StoreInfo;
@@ -28,6 +30,7 @@ import org.geotools.data.Query;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.util.factory.Hints;
+import org.geotools.util.logging.Logging;
 import org.opengis.feature.Feature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeDescriptor;
@@ -42,6 +45,7 @@ import org.opengis.util.ProgressListener;
  */
 public class SecuredFeatureTypeInfo extends DecoratingFeatureTypeInfo {
 
+    private static final Logger LOGGER = Logging.getLogger(SecuredFeatureTypeInfo.class);
     protected static final String GET_CAPABILITIES = "GetCapabilities";
 
     WrapperPolicy policy;
@@ -122,6 +126,10 @@ public class SecuredFeatureTypeInfo extends DecoratingFeatureTypeInfo {
      */
     private WrapperPolicy computeWrapperPolicy(Request request) {
         if (isGetCapabilities(request) && policy.getLimits() instanceof VectorAccessLimits) {
+            LOGGER.log(
+                    Level.INFO,
+                    "Changing current WrapperPolicy to allow GetCapabilities to check the required data for policy: {0}",
+                    policy);
             VectorAccessLimits accessLimits = (VectorAccessLimits) policy.getLimits();
             VectorAccessLimits newLimits =
                     new VectorAccessLimits(
@@ -131,6 +139,10 @@ public class SecuredFeatureTypeInfo extends DecoratingFeatureTypeInfo {
                             accessLimits.getWriteAttributes(),
                             accessLimits.getWriteFilter());
             WrapperPolicy newPolicy = WrapperPolicy.readOnlyChallenge(newLimits);
+            LOGGER.log(
+                    Level.INFO,
+                    "New policy to allow GetCapabilities access to data: {0}",
+                    newPolicy);
             return newPolicy;
         }
         return policy;

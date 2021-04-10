@@ -27,19 +27,20 @@ import org.geoserver.security.TestResourceAccessManager;
 import org.geoserver.security.VectorAccessLimits;
 import org.geoserver.security.impl.AbstractUserGroupService;
 import org.geoserver.wms.WMSDimensionsTestSupport;
+import org.junit.After;
 import org.junit.Test;
 import org.opengis.filter.Filter;
 import org.w3c.dom.Document;
 
 public class DimensionsVectorCapabilitiesTest extends WMSDimensionsTestSupport {
 
-    /** Add the test resource access manager in the spring context */
+    /** Add the test resource access manager in the spring context. */
     @Override
     protected void setUpSpring(List<String> springContextLocations) {
         super.setUpSpring(springContextLocations);
         springContextLocations.add("classpath:/org/geoserver/wms/ResourceAccessManagerContext.xml");
     }
-    /** Enable the Spring Security auth filters */
+    /** Enable the Spring Security auth filters. */
     @Override
     protected List<javax.servlet.Filter> getFilters() {
         return Collections.singletonList(
@@ -69,6 +70,19 @@ public class DimensionsVectorCapabilitiesTest extends WMSDimensionsTestSupport {
         props.put("admin", "geoserver,ROLE_ADMINISTRATOR");
         props.put("admin2", "ROLE_DUMMY");
         props.store(new FileOutputStream(users), "");
+    }
+
+    @After
+    public void afterTest() {
+        TestResourceAccessManager tam = getResourceAccessManager();
+        Catalog catalog = getCatalog();
+        FeatureTypeInfo featureTypeInfo = catalog.getFeatureTypeByName("sf:TimeElevation");
+        // return access rights to allow for admin2 user
+        tam.putLimits(
+                "admin2",
+                featureTypeInfo,
+                new VectorAccessLimits(
+                        CatalogMode.MIXED, null, Filter.INCLUDE, null, Filter.INCLUDE));
     }
 
     @Test
@@ -490,7 +504,6 @@ public class DimensionsVectorCapabilitiesTest extends WMSDimensionsTestSupport {
                 UNIT_SYMBOL);
 
         Document dom = dom(get("wms?request=getCapabilities&version=1.3.0"), false);
-        print(dom);
 
         // check dimension has been declared
         assertXpathEvaluatesTo("1", "count(//wms:Layer/wms:Dimension)", dom);
