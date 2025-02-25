@@ -11,6 +11,23 @@
 	  <br/>
 	  <div wicket:id="exclusions"></div>
 	  <div wicket:id="datastorename"></div>
+	  <div wicket:id="overrides">
+		  <div wicket:id="addOverridePanel"></div>
+		  <table cellspacing="0" class="overrides-dataview">
+			  <tr>
+				  <th>Item Id</th>
+				  <th>ID</th>
+				  <th>Expression</th>
+				  <th>Actions</th>
+			  </tr>
+			  <tr wicket:id="overridesview">
+				  <td><span wicket:id="itemid">[item id]</span></td>
+				  <td><span wicket:id="overridekey">[contactid]</span> </td>
+				  <td><span wicket:id="expression">[firstname]</span></td>
+				  <td><span wicket:id="actions">[Remove]</span></td>
+			  </tr>
+		  </table>
+	  </div>
 	</fieldset>
 </wicket:panel>
 </body>

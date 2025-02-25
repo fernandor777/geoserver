@@ -92,7 +92,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         super(componentId, storeEditForm);
         model = storeEditForm.getModel();
         setDefaultModel(model);
-        smartAppSchemaDataStoreInfo = ((DataStoreInfo) storeEditForm.getModel().getObject());
+        smartAppSchemaDataStoreInfo = (DataStoreInfo) model.getObject();
         // set helper variables
         selectedPostgisDataStoreId = getDataStoreInfoParam(SmartDataLoaderDataAccessFactory.DATASTORE_METADATA.key);
         selectedRootEntityName = getDataStoreInfoParam(SmartDataLoaderDataAccessFactory.ROOT_ENTITY.key);
@@ -105,6 +105,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         buildDomainModelTreePanel(model);
         // build exclusions panel (it's hidden)
         buildHiddenParametersPanel(model);
+        buildOverridesView();
     }
 
     @Override
@@ -429,6 +430,14 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             convertTreeToSet((DefaultMutableTreeNode) aNode.getChildAt(i), nodes);
         }
         nodes.add(aNode);
+    }
+
+    private void buildOverridesView() {
+        IModel<DataStoreInfo> dsiModel = (IModel<DataStoreInfo>) this.model;
+        SmartOverridesRefreshingView overridesView = new SmartOverridesRefreshingView("overridesview", dsiModel);
+        add(overridesView);
+        OverrideAddPanel addOverridePanel = new OverrideAddPanel("addOverridePanel", new SmartOverridesModel(dsiModel), overridesView);
+        add(addOverridePanel);
     }
 
     public static class DataStoreSummmary implements Serializable {
