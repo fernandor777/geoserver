@@ -320,7 +320,8 @@ public final class AppSchemaUtils {
         return attributeMappingNode;
     }
 
-    static Node createAttributeMappingIdExpression(Document document, String typeMappingTarget, IdExpression idExpression) {
+    static Node createAttributeMappingIdExpression(
+            Document document, String typeMappingTarget, IdExpression idExpression) {
         int sep = typeMappingTarget.indexOf(":");
         String idPrefix = typeMappingTarget;
         if (sep != -1) idPrefix = typeMappingTarget.substring(sep + 1);

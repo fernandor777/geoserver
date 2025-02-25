@@ -1,13 +1,12 @@
 package org.geoserver.smartdataloader.data.store.panel;
 
-import org.apache.wicket.model.IModel;
-import org.geoserver.catalog.DataStoreInfo;
-
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.wicket.model.IModel;
+import org.geoserver.catalog.DataStoreInfo;
 
 class SmartOverridesModel implements IModel<Set<SmartOverrideEntry>> {
 

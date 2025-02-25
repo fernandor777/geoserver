@@ -14,10 +14,12 @@ public class OverrideAddPanel extends Panel {
 
     private final SmartOverridesModel smartOverridesModel;
     private IModel<String> keyModel = Model.of("");
-    private IModel<String> expressionModel = Model.of("");;
+    private IModel<String> expressionModel = Model.of("");
+    ;
     private SmartOverridesRefreshingView smartOverridesRefreshingView;
 
-    public OverrideAddPanel(String id, SmartOverridesModel overridesModel, SmartOverridesRefreshingView smartOverridesRefreshingView) {
+    public OverrideAddPanel(
+            String id, SmartOverridesModel overridesModel, SmartOverridesRefreshingView smartOverridesRefreshingView) {
         super(id);
         this.smartOverridesModel = overridesModel;
         this.smartOverridesRefreshingView = smartOverridesRefreshingView;

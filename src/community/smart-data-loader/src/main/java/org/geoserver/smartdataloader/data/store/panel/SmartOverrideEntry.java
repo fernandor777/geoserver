@@ -44,9 +44,6 @@ public class SmartOverrideEntry implements Serializable {
 
     @Override
     public String toString() {
-        return "SmartOverrideEntry{" +
-                "key='" + key + '\'' +
-                ", expression='" + expression + '\'' +
-                '}';
+        return "SmartOverrideEntry{" + "key='" + key + '\'' + ", expression='" + expression + '\'' + '}';
     }
 }

@@ -1,11 +1,10 @@
 package org.geoserver.smartdataloader.data.store;
 
+import java.util.Map;
 import org.geoserver.smartdataloader.domain.DomainModelVisitorImpl;
 import org.geoserver.smartdataloader.domain.entities.DomainEntity;
 import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
 import org.geoserver.smartdataloader.domain.entities.DomainModel;
-
-import java.util.Map;
 
 public class ExpressionOverridesDomainModelVisitor extends DomainModelVisitorImpl {
 

@@ -21,6 +21,5 @@ public class SmartOverrideEntryModel implements IModel<SmartOverrideEntry> {
     }
 
     @Override
-    public void detach() {
-    }
+    public void detach() {}
 }

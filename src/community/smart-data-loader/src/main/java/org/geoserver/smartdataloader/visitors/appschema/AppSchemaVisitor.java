@@ -32,8 +32,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import java.io.Serializable;
-
 /** This visitor generates a valid AppSchema xml document for the domain model it will visit. */
 public final class AppSchemaVisitor extends DomainModelVisitorImpl {
 
@@ -129,7 +127,8 @@ public final class AppSchemaVisitor extends DomainModelVisitorImpl {
             appendOrUpdateIdExpression(featureTypeMapping, idExpression, attributeMappings);
         }
         String targetAttributeValue = this.targetNamespacePrefix + ":" + attribute.getName();
-        Node attributeMappingNode = createAttributeMapping(appDocument, targetAttributeValue, idExpression.getOCQLDefinition());
+        Node attributeMappingNode =
+                createAttributeMapping(appDocument, targetAttributeValue, idExpression.getOCQLDefinition());
         attributeMappings.appendChild(attributeMappingNode);
     }
 
@@ -165,5 +164,4 @@ public final class AppSchemaVisitor extends DomainModelVisitorImpl {
     public Document getDocument() {
         return appDocument;
     }
-
 }

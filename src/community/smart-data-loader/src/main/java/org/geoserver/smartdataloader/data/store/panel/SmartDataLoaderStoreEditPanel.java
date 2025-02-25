@@ -436,7 +436,8 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         IModel<DataStoreInfo> dsiModel = (IModel<DataStoreInfo>) this.model;
         SmartOverridesRefreshingView overridesView = new SmartOverridesRefreshingView("overridesview", dsiModel);
         add(overridesView);
-        OverrideAddPanel addOverridePanel = new OverrideAddPanel("addOverridePanel", new SmartOverridesModel(dsiModel), overridesView);
+        OverrideAddPanel addOverridePanel =
+                new OverrideAddPanel("addOverridePanel", new SmartOverridesModel(dsiModel), overridesView);
         add(addOverridePanel);
     }
 

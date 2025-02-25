@@ -1,8 +1,7 @@
 package org.geoserver.smartdataloader.visitors.appschema;
 
-import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
-
 import java.io.Serializable;
+import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
 
 public class IdExpression implements Serializable {
 
@@ -16,7 +15,7 @@ public class IdExpression implements Serializable {
 
     public IdExpression(DomainEntitySimpleAttribute attribute) {
         this.name = attribute.getName();
-        if (attribute.hasExpression()){
+        if (attribute.hasExpression()) {
             this.expression = attribute.getExpression();
         } else {
             this.expression = null;

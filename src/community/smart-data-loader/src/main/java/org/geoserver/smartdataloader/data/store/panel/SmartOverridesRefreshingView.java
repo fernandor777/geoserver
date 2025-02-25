@@ -1,5 +1,10 @@
 package org.geoserver.smartdataloader.data.store.panel;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.markup.html.basic.Label;
@@ -7,12 +12,6 @@ import org.apache.wicket.markup.repeater.Item;
 import org.apache.wicket.markup.repeater.RefreshingView;
 import org.apache.wicket.model.IModel;
 import org.geoserver.catalog.DataStoreInfo;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
 
 public class SmartOverridesRefreshingView extends RefreshingView<SmartOverrideEntry> {
 
@@ -42,17 +41,17 @@ public class SmartOverridesRefreshingView extends RefreshingView<SmartOverrideEn
 
     public class SmarOverrideRemoveLink extends AjaxLink<SmartOverrideEntry> {
 
-            public SmarOverrideRemoveLink(String id, IModel<SmartOverrideEntry> model) {
-                super(id, model);
-            }
+        public SmarOverrideRemoveLink(String id, IModel<SmartOverrideEntry> model) {
+            super(id, model);
+        }
 
-            @Override
-            public void onClick(AjaxRequestTarget target) {
-                SmartOverrideEntry entry = getModelObject();
-                Set<SmartOverrideEntry> smartOverrides = new HashSet<>(smartOverridesModel.getObject());
-                smartOverrides.remove(entry);
-                smartOverridesModel.setObject(smartOverrides);
-                target.add(SmartOverridesRefreshingView.this);
-            }
+        @Override
+        public void onClick(AjaxRequestTarget target) {
+            SmartOverrideEntry entry = getModelObject();
+            Set<SmartOverrideEntry> smartOverrides = new HashSet<>(smartOverridesModel.getObject());
+            smartOverrides.remove(entry);
+            smartOverridesModel.setObject(smartOverrides);
+            target.add(SmartOverridesRefreshingView.this);
+        }
     }
 }
