@@ -32,6 +32,8 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
+import java.io.Serializable;
+
 /** This visitor generates a valid AppSchema xml document for the domain model it will visit. */
 public final class AppSchemaVisitor extends DomainModelVisitorImpl {
 
@@ -122,16 +124,16 @@ public final class AppSchemaVisitor extends DomainModelVisitorImpl {
         Node featureTypeMapping = currentFeatureTypeMapping;
         // append AttributeMapping to the FeatureTypeMapping
         Node attributeMappings = getChildByName(featureTypeMapping, "attributeMappings");
-        String OCQLValue = attribute.getName();
+        IdExpression idExpression = new IdExpression(attribute);
         if (attribute.isIdentifier()) {
-            appendOrUpdateIdExpression(featureTypeMapping, OCQLValue, attributeMappings);
+            appendOrUpdateIdExpression(featureTypeMapping, idExpression, attributeMappings);
         }
         String targetAttributeValue = this.targetNamespacePrefix + ":" + attribute.getName();
-        Node attributeMappingNode = createAttributeMapping(appDocument, targetAttributeValue, OCQLValue);
+        Node attributeMappingNode = createAttributeMapping(appDocument, targetAttributeValue, idExpression.getOCQLDefinition());
         attributeMappings.appendChild(attributeMappingNode);
     }
 
-    private void appendOrUpdateIdExpression(Node featureTypeMapping, String OCQLValue, Node attributeMappings) {
+    private void appendOrUpdateIdExpression(Node featureTypeMapping, IdExpression OCQLValue, Node attributeMappings) {
         Node idExpression = getIdExpression(featureTypeMapping);
         if (idExpression != null) updateAttributeMappingIdExpression(idExpression, OCQLValue);
         else {
@@ -163,4 +165,5 @@ public final class AppSchemaVisitor extends DomainModelVisitorImpl {
     public Document getDocument() {
         return appDocument;
     }
+
 }

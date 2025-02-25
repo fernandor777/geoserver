@@ -33,6 +33,7 @@ import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.smartdataloader.data.store.ExclusionsDomainModelVisitor;
+import org.geoserver.smartdataloader.data.store.ExpressionOverridesDomainModelVisitor;
 import org.geoserver.smartdataloader.domain.DomainModelBuilder;
 import org.geoserver.smartdataloader.domain.DomainModelConfig;
 import org.geoserver.smartdataloader.domain.entities.DomainModel;
@@ -85,6 +86,7 @@ public class SmartDataLoaderDataAccessFactory implements DataAccessFactory {
     public static final Param DATASTORE_METADATA = new Param("datastore", String.class, "JDBC related DataStore", true);
     public static final Param DOMAIN_MODEL_EXCLUSIONS =
             new Param("excluded objects", String.class, "Excluded comma separated domainmodel object list", false);
+    public static final String SMART_OVERRIDE = "smart-override:";
 
     @Override
     public String getDisplayName() {
@@ -246,14 +248,32 @@ public class SmartDataLoaderDataAccessFactory implements DataAccessFactory {
             throw new RuntimeException("Cannot connect to DB with defined parameters.");
         }
         DomainModelConfig dmc = new DomainModelConfig();
+        // add the override expressions from connection parameters map
+        dmc.setOverrideExpressions(getOverrideExpressionsMap(params));
         dmc.setRootEntityName(rootEntity);
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);
         DomainModel dm = dmb.buildDomainModel();
         // apply exclusions to original model
         DomainModel newDomainModel = ExclusionsDomainModelVisitor.buildDomainModel(dm, exclusions);
+        // apply the expressions override to current model
+        ExpressionOverridesDomainModelVisitor expressionOverridesDomainModelVisitor =
+                new ExpressionOverridesDomainModelVisitor(getOverrideExpressionsMap(params));
+        expressionOverridesDomainModelVisitor.visitDomainModel(newDomainModel);
         // release datastore before returning model
         jdbcDataStore.dispose();
         return newDomainModel;
+    }
+
+    private static Map<String, String> getOverrideExpressionsMap(Map<String, Serializable> params) {
+        Map<String, String> overrideExpressions = new LinkedHashMap<>();
+        for (Map.Entry<String, Serializable> entry : params.entrySet()) {
+            String key = entry.getKey();
+            if (key.startsWith(SMART_OVERRIDE)) {
+                String value = (String) entry.getValue();
+                overrideExpressions.put(key.substring(SMART_OVERRIDE.length()), value);
+            }
+        }
+        return overrideExpressions;
     }
 
     /** Helper method that allows to save an xml document representing a mapping in smart-appschema folder. */
