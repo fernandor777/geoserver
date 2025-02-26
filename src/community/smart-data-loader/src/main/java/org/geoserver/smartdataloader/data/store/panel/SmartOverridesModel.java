@@ -2,15 +2,17 @@ package org.geoserver.smartdataloader.data.store.panel;
 
 import java.io.Serializable;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.model.IModel;
 import org.geoserver.catalog.DataStoreInfo;
+import org.geoserver.smartdataloader.data.SmartDataLoaderDataAccessFactory;
+import org.geoserver.smartdataloader.data.store.SmartOverrideRulesParser;
 
 class SmartOverridesModel implements IModel<Set<SmartOverrideEntry>> {
-
-    public static final String SMART_OVERRIDE = "smart-override:";
 
     private final IModel<DataStoreInfo> storeModel;
 
@@ -29,28 +31,33 @@ class SmartOverridesModel implements IModel<Set<SmartOverrideEntry>> {
     }
 
     public void add(SmartOverrideEntry entry) {
-        Map<String, Serializable> connectionParameters = storeModel.getObject().getConnectionParameters();
-        connectionParameters.put(entry.getKey(), entry.getExpression());
+        Set<SmartOverrideEntry> smartOverrides = new HashSet<>(getSmartOverrides());
+        smartOverrides.add(entry);
+        setSmartOverrides(smartOverrides);
     }
 
     private Set<SmartOverrideEntry> getSmartOverrides() {
         Map<String, Serializable> connectionParameters = storeModel.getObject().getConnectionParameters();
-        if (connectionParameters != null) {
+        Serializable serializable = connectionParameters.get(SmartDataLoaderDataAccessFactory.SMART_OVERRIDE_PARAM.key);
+        String smartOverrides = null;
+        if (serializable instanceof String) {
+            smartOverrides = (String) serializable;
+        }
+        if (StringUtils.isBlank(smartOverrides)) {
             return Collections.emptySet();
         }
-        return connectionParameters.entrySet().stream()
-                .filter(e -> e.getKey().startsWith(SMART_OVERRIDE))
-                .map(e -> new SmartOverrideEntry(e.getKey(), e.getValue().toString()))
+        return SmartOverrideRulesParser.INSTANCE.parse(smartOverrides).entrySet().stream()
+                .map(e -> new SmartOverrideEntry(e.getKey(), e.getValue()))
                 .collect(Collectors.toSet());
     }
 
     private void setSmartOverrides(Set<SmartOverrideEntry> smartOverrides) {
-        Map<String, Serializable> connectionParameters = storeModel.getObject().getConnectionParameters();
-        for (String key : connectionParameters.keySet()) {
-            if (key.startsWith(SMART_OVERRIDE)) {
-                connectionParameters.remove(key);
-            }
-        }
-        smartOverrides.forEach(e -> connectionParameters.put(e.getKey(), e.getExpression()));
+        Map<String, String> smartOverridesMap = smartOverrides.stream()
+                .collect(Collectors.toMap(SmartOverrideEntry::getKey, SmartOverrideEntry::getExpression));
+        String encodedOverrides = SmartOverrideRulesParser.INSTANCE.encode(smartOverridesMap);
+        storeModel
+                .getObject()
+                .getConnectionParameters()
+                .put(SmartDataLoaderDataAccessFactory.SMART_OVERRIDE_PARAM.key, encodedOverrides);
     }
 }

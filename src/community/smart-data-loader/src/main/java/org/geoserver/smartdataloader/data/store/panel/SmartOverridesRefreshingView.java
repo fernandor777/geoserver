@@ -20,6 +20,7 @@ public class SmartOverridesRefreshingView extends RefreshingView<SmartOverrideEn
     public SmartOverridesRefreshingView(String id, IModel<DataStoreInfo> storeModel) {
         super(id);
         this.smartOverridesModel = new SmartOverridesModel(storeModel);
+        this.setOutputMarkupId(true);
     }
 
     @Override
@@ -51,7 +52,7 @@ public class SmartOverridesRefreshingView extends RefreshingView<SmartOverrideEn
             Set<SmartOverrideEntry> smartOverrides = new HashSet<>(smartOverridesModel.getObject());
             smartOverrides.remove(entry);
             smartOverridesModel.setObject(smartOverrides);
-            target.add(SmartOverridesRefreshingView.this);
+            target.add(SmartOverridesRefreshingView.this.getParent());
         }
     }
 }

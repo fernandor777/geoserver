@@ -17,6 +17,8 @@ public class OverrideAddPanel extends Panel {
     private IModel<String> expressionModel = Model.of("");
     ;
     private SmartOverridesRefreshingView smartOverridesRefreshingView;
+    private final TextField<String> input1;
+    private final TextField<String> input2;
 
     public OverrideAddPanel(
             String id, SmartOverridesModel overridesModel, SmartOverridesRefreshingView smartOverridesRefreshingView) {
@@ -24,9 +26,9 @@ public class OverrideAddPanel extends Panel {
         this.smartOverridesModel = overridesModel;
         this.smartOverridesRefreshingView = smartOverridesRefreshingView;
         Form<Void> form = new Form<>("addOverrideForm");
-        TextField<String> input1 = new TextField<>("addOverrideKey", keyModel);
-        TextField<String> input2 = new TextField<>("addOverrideExpression", expressionModel);
-        FeedbackPanel feedback = new FeedbackPanel("feedback");
+        input1 = new TextField<>("addOverrideKey", keyModel);
+        input2 = new TextField<>("addOverrideExpression", expressionModel);
+        FeedbackPanel feedback = new FeedbackPanel("addOverrideFeedback");
         feedback.setOutputMarkupId(true);
 
         AjaxButton submitButton = new AjaxButton("addOverrideSubmitButton") {
@@ -42,7 +44,7 @@ public class OverrideAddPanel extends Panel {
 
                 target.add(feedback);
                 target.add(form);
-                target.add(smartOverridesRefreshingView);
+                target.add(smartOverridesRefreshingView.getParent());
             }
 
             @Override
@@ -62,9 +64,11 @@ public class OverrideAddPanel extends Panel {
     }
 
     private void addOverride() {
-        if (StringUtils.isBlank(keyModel.getObject()) || StringUtils.isBlank(expressionModel.getObject())) {
+        String key = StringUtils.trim(input1.getValue());
+        String expression = StringUtils.trim(input2.getValue());
+        if (StringUtils.isBlank(key) || StringUtils.isBlank(expression)) {
             throw new IllegalArgumentException("Key and expression must be provided");
         }
-        smartOverridesModel.add(new SmartOverrideEntry(keyModel.getObject(), expressionModel.getObject()));
+        smartOverridesModel.add(new SmartOverrideEntry(key, expression));
     }
 }

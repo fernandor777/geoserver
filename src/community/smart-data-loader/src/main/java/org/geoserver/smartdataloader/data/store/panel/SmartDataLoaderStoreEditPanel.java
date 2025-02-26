@@ -16,6 +16,7 @@ import javax.swing.tree.DefaultTreeModel;
 import org.apache.wicket.ajax.AjaxEventBehavior;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.form.AjaxFormComponentUpdatingBehavior;
+import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.ChoiceRenderer;
 import org.apache.wicket.markup.html.form.DropDownChoice;
@@ -433,12 +434,15 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
     }
 
     private void buildOverridesView() {
+        WebMarkupContainer container = new WebMarkupContainer("overridesContainer");
+        container.setOutputMarkupId(true);
+        add(container);
         IModel<DataStoreInfo> dsiModel = (IModel<DataStoreInfo>) this.model;
         SmartOverridesRefreshingView overridesView = new SmartOverridesRefreshingView("overridesview", dsiModel);
-        add(overridesView);
+        container.add(overridesView);
         OverrideAddPanel addOverridePanel =
                 new OverrideAddPanel("addOverridePanel", new SmartOverridesModel(dsiModel), overridesView);
-        add(addOverridePanel);
+        container.add(addOverridePanel);
     }
 
     public static class DataStoreSummmary implements Serializable {
