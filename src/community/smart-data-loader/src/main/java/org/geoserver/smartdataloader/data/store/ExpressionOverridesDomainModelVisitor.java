@@ -9,11 +9,13 @@ import org.geoserver.smartdataloader.domain.entities.DomainModel;
 public class ExpressionOverridesDomainModelVisitor extends DomainModelVisitorImpl {
 
     private final Map<String, String> overrideExpressions;
+    private final PkOverrider pkOverrider;
 
     private DomainEntity currentEntity;
 
     public ExpressionOverridesDomainModelVisitor(Map<String, String> overrideExpressions) {
         this.overrideExpressions = overrideExpressions;
+        this.pkOverrider = new PkOverrider(overrideExpressions);
     }
 
     @Override
@@ -24,6 +26,7 @@ public class ExpressionOverridesDomainModelVisitor extends DomainModelVisitorImp
     @Override
     public void visitDomainEntitySimpleAttribute(DomainEntitySimpleAttribute attribute) {
         if (currentEntity != null) {
+            pkOverrider.attributeOverride(currentEntity.getName(), attribute);
             String expression = overrideExpressions.get(getCurrentEntityColumnPath(attribute));
             if (expression != null) {
                 attribute.setExpression(expression);

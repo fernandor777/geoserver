@@ -183,4 +183,43 @@ public abstract class JDBCAppSchemaVisitorTest extends AbstractJDBCSmartDataLoad
             assertTrue(d.similar());
         }
     }
+
+    @Test
+    public void testStationsRootEntityOverridePkOnly() throws Exception {
+        DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        DomainModelConfig dmc = new DomainModelConfig();
+        dmc.setRootEntityName("meteo_stations");
+        // add the override expression for the id attribute
+        Map<String, String> overrideExpressions = new HashMap<>();
+        overrideExpressions.put("meteo_stations.code", "strConcat('test-', code)");
+        overrideExpressions.put("meteo_stations", "code");
+        dmc.setOverrideExpressions(overrideExpressions);
+
+        DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);
+        DomainModel dm = dmb.buildDomainModel();
+        ExpressionOverridesDomainModelVisitor expressionOverridesDomainModelVisitor =
+                new ExpressionOverridesDomainModelVisitor(overrideExpressions);
+        dm.accept(expressionOverridesDomainModelVisitor);
+        AppSchemaVisitor dmv = new AppSchemaVisitor(NAMESPACE_PREFIX, TARGET_NAMESPACE, "meteo-stations-gml.xsd");
+        dm.accept(dmv);
+
+        try (InputStream is =
+                JDBCAppSchemaVisitorTest.class.getResourceAsStream("meteo-stations-overridepkonly-appschema.xml")) {
+            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+            Document control = dBuilder.parse(is);
+            // clean sourceDataStores nodes from control and dmv doc to allow assertion based on xml
+            // comparision
+            removeSourceDataStoresNode(control);
+            removeSourceDataStoresNode(dmv.getDocument());
+
+            XMLUnit.setIgnoreWhitespace(true);
+            XMLUnit.setIgnoreComments(true);
+
+            Diff d = XMLUnit.compareXML(control, dmv.getDocument());
+
+            assertTrue(d.similar());
+        }
+    }
 }

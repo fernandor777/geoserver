@@ -14,6 +14,8 @@ public final class DomainEntitySimpleAttribute {
     private DomainAttributeType type;
     private boolean identifier;
 
+    public DomainEntitySimpleAttribute() {}
+
     public String getName() {
         return name;
     }

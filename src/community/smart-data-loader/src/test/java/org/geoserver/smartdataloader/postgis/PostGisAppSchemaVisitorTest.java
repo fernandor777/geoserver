@@ -15,6 +15,11 @@ public class PostGisAppSchemaVisitorTest extends JDBCAppSchemaVisitorTest {
     }
 
     @Override
+    public void testStationsRootEntityOverridePkOnly() throws Exception {
+        super.testStationsRootEntityOverridePkOnly();
+    }
+
+    @Override
     protected JDBCTestSetup createTestSetup() {
         return new MeteoStationsPostGISTestSetUp();
     }

@@ -122,6 +122,8 @@ public abstract class AbstractJDBCSmartDataLoaderTestSupport extends GeoServerSy
         try (FileOutputStream output = new FileOutputStream(filepath)) {
             TransformerFactory transformerFactory = TransformerFactory.newInstance();
             Transformer transformer = transformerFactory.newTransformer();
+            transformer.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
             DOMSource source = new DOMSource(doc);
             StreamResult result = new StreamResult(output);
             transformer.transform(source, result);
