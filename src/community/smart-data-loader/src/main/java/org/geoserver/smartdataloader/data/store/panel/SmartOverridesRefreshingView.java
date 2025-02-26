@@ -37,7 +37,7 @@ public class SmartOverridesRefreshingView extends RefreshingView<SmartOverrideEn
         item.add(new Label("itemid", item.getId()));
         item.add(new Label("overridekey", item.getModel().getObject().getKey()));
         item.add(new Label("expression", item.getModel().getObject().getExpression()));
-        item.add(new SmarOverrideRemoveLink("actions", item.getModel()));
+        item.add(new SmarOverrideRemoveLink("removeLink", item.getModel()));
     }
 
     public class SmarOverrideRemoveLink extends AjaxLink<SmartOverrideEntry> {
