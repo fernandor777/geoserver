@@ -16,6 +16,8 @@ import javax.swing.tree.DefaultTreeModel;
 import org.apache.wicket.ajax.AjaxEventBehavior;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.form.AjaxFormComponentUpdatingBehavior;
+import org.apache.wicket.markup.head.CssHeaderItem;
+import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.ChoiceRenderer;
@@ -160,6 +162,13 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
                 target.add(datastorename);
             }
         });
+    }
+
+    @Override
+    public void renderHead(IHeaderResponse response) {
+        super.renderHead(response);
+        String css = ".qos-panel { " + "border: 1px solid #c6e09b; " + "padding: 5px; " + " }";
+        response.render(CssHeaderItem.forCSS(css, "qosPanelCss"));
     }
 
     /** Helper method that creates dropdown for postgis datastore selection. */
