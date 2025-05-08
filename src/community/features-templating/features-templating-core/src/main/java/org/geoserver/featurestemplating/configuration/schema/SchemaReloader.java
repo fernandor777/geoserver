@@ -13,9 +13,9 @@ import org.geoserver.featurestemplating.configuration.TemplateLoader;
  */
 public class SchemaReloader implements GeoServerLifecycleHandler {
 
-    TemplateLoader loader;
+    SchemaLoader loader;
 
-    public SchemaReloader(TemplateLoader configuration) {
+    public SchemaReloader(SchemaLoader configuration) {
         this.loader = configuration;
     }
 

@@ -24,7 +24,7 @@
     </bean>
 
     <!-- Schema override -->
-    <bean id="schemaConfiguration" class="org.geoserver.featurestemplating.configuration.TemplateLoader">
+    <bean id="schemaConfiguration" class="org.geoserver.featurestemplating.configuration.schema.SchemaLoader">
         <constructor-arg ref="dataDirectory"/>
     </bean>
 
