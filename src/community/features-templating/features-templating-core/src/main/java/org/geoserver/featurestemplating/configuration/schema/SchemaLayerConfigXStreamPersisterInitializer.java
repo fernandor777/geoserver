@@ -6,8 +6,6 @@ package org.geoserver.featurestemplating.configuration.schema;
 
 import org.geoserver.config.util.XStreamPersister;
 import org.geoserver.config.util.XStreamPersisterInitializer;
-import org.geoserver.featurestemplating.configuration.TemplateLayerConfig;
-import org.geoserver.featurestemplating.configuration.TemplateRule;
 
 /** XStreamPersisterInitializer for TemplateLayerConfig class and TemplateRule list. */
 public class SchemaLayerConfigXStreamPersisterInitializer implements XStreamPersisterInitializer {

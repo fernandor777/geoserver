@@ -4,12 +4,11 @@
  */
 package org.geoserver.featurestemplating.web.schema;
 
+import java.util.Arrays;
+import java.util.List;
 import org.geoserver.featurestemplating.configuration.schema.SchemaInfo;
 import org.geoserver.featurestemplating.configuration.schema.SchemaInfoDAO;
 import org.geoserver.web.wicket.GeoServerDataProvider;
-
-import java.util.Arrays;
-import java.util.List;
 
 public class SchemaInfoProvider extends GeoServerDataProvider<SchemaInfo> {
 

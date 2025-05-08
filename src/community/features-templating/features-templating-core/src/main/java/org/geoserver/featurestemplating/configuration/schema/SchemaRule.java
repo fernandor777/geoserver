@@ -4,19 +4,17 @@
  */
 package org.geoserver.featurestemplating.configuration.schema;
 
-import org.geoserver.featurestemplating.configuration.SupportedFormat;
-import org.geoserver.featurestemplating.configuration.TemplateIdentifier;
-import org.geoserver.featurestemplating.configuration.TemplateInfo;
-import org.geoserver.ows.Request;
-import org.geoserver.util.XCQL;
-import org.geotools.api.filter.Filter;
-import org.geotools.filter.text.cql2.CQLException;
-
-import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.UUID;
+import javax.xml.bind.annotation.XmlRootElement;
+import org.geoserver.featurestemplating.configuration.SupportedFormat;
+import org.geoserver.featurestemplating.configuration.TemplateIdentifier;
+import org.geoserver.ows.Request;
+import org.geoserver.util.XCQL;
+import org.geotools.api.filter.Filter;
+import org.geotools.filter.text.cql2.CQLException;
 
 /**
  * A template rule associated to a FeatureTypeInfo. Its evaluation determines if a specific template should be applied

@@ -4,10 +4,8 @@
  */
 package org.geoserver.featurestemplating.configuration.schema;
 
-import org.geoserver.featurestemplating.configuration.TemplateFileManager;
-import org.geotools.util.logging.Logging;
-
 import java.util.logging.Logger;
+import org.geotools.util.logging.Logging;
 
 public class FileSchemaDAOListener implements SchemaDAOListener {
 
@@ -24,7 +22,5 @@ public class FileSchemaDAOListener implements SchemaDAOListener {
     }
 
     @Override
-    public void handleUpdateEvent(SchemaInfoEvent updateEvent) {
-
-    }
+    public void handleUpdateEvent(SchemaInfoEvent updateEvent) {}
 }

@@ -31,8 +31,7 @@ public class SchemaInfo implements Serializable, Comparable<SchemaInfo> {
         this.identifier = UUID.randomUUID().toString();
     }
 
-    public SchemaInfo(
-            String identifier, String schemaName, String workspace, String featureType, String extension) {
+    public SchemaInfo(String identifier, String schemaName, String workspace, String featureType, String extension) {
         this.identifier = identifier;
         this.schemaName = schemaName;
         this.workspace = workspace;

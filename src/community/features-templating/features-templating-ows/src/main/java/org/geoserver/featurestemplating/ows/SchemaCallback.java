@@ -4,13 +4,17 @@
  */
 package org.geoserver.featurestemplating.ows;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.logging.Logger;
+import javax.xml.namespace.QName;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.config.GeoServer;
 import org.geoserver.featurestemplating.builders.TemplateBuilder;
 import org.geoserver.featurestemplating.builders.impl.RootBuilder;
 import org.geoserver.featurestemplating.configuration.TemplateIdentifier;
-import org.geoserver.featurestemplating.configuration.TemplateLoader;
 import org.geoserver.featurestemplating.configuration.schema.SchemaLoader;
 import org.geoserver.featurestemplating.ows.wfs.SchemaOverrideDescribeFeatureTypeResponse;
 import org.geoserver.featurestemplating.request.TemplatePathVisitor;
@@ -22,7 +26,6 @@ import org.geoserver.ows.Response;
 import org.geoserver.platform.Operation;
 import org.geoserver.platform.ServiceException;
 import org.geoserver.wfs.request.DescribeFeatureTypeRequest;
-import org.geoserver.wfs.request.GetFeatureRequest;
 import org.geoserver.wfs.request.Query;
 import org.geoserver.wms.GetFeatureInfoRequest;
 import org.geoserver.wms.MapLayerInfo;
@@ -32,12 +35,6 @@ import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.NameImpl;
 import org.geotools.filter.text.ecql.ECQL;
 import org.geotools.util.logging.Logging;
-
-import javax.xml.namespace.QName;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.logging.Logger;
 
 /**
  * This {@link DispatcherCallback} implementation checks on operation dispatched event if a json-ld path has been
@@ -64,19 +61,19 @@ public class SchemaCallback extends AbstractDispatcherCallback {
 
     @Override
     public Operation operationDispatched(Request request, Operation operation) {
-//        if (operationSupported(operation)) {
-//            try {
-//                GetFeatureRequest getFeature = GetFeatureRequest.adapt(operation.getParameters()[0]);
-//                if (getFeature != null) {
-//                    List<Query> queries = getFeature.getQueries();
-//                    if (queries != null && queries.size() > 0) {
-//                        handleTemplateFilters(queries, request.getOutputFormat());
-//                    }
-//                }
-//            } catch (Exception e) {
-//                throw new RuntimeException(e);
-//            }
-//        }
+        //        if (operationSupported(operation)) {
+        //            try {
+        //                GetFeatureRequest getFeature = GetFeatureRequest.adapt(operation.getParameters()[0]);
+        //                if (getFeature != null) {
+        //                    List<Query> queries = getFeature.getQueries();
+        //                    if (queries != null && queries.size() > 0) {
+        //                        handleTemplateFilters(queries, request.getOutputFormat());
+        //                    }
+        //                }
+        //            } catch (Exception e) {
+        //                throw new RuntimeException(e);
+        //            }
+        //        }
         return super.operationDispatched(request, operation);
     }
 
@@ -108,12 +105,12 @@ public class SchemaCallback extends AbstractDispatcherCallback {
             throws ExecutionException {
         List<RootBuilder> rootBuilders = new ArrayList<>();
         int nullRootIndex = 0;
-//        for (int i = 0; i < typeInfos.size(); i++) {
-//            FeatureTypeInfo fti = typeInfos.get(i);
-//            String root = ensureTemplatesExist(fti, outputFormat);
-//            if (root == null) nullRootIndex = i;
-//            else rootBuilders.add(root);
-//        }
+        //        for (int i = 0; i < typeInfos.size(); i++) {
+        //            FeatureTypeInfo fti = typeInfos.get(i);
+        //            String root = ensureTemplatesExist(fti, outputFormat);
+        //            if (root == null) nullRootIndex = i;
+        //            else rootBuilders.add(root);
+        //        }
         int rootsSize = rootBuilders.size();
         if (rootsSize > 0 && rootsSize != typeInfos.size()) {
             // we are missing a template throwing exception
@@ -178,29 +175,30 @@ public class SchemaCallback extends AbstractDispatcherCallback {
 
     private Response findResponse(Object param1) {
         Response response = null;
-//        if (param1 instanceof DescribeFeatureTypeRequest) {
-            DescribeFeatureTypeRequest dftr = DescribeFeatureTypeRequest.adapt(param1);
-            List<QName> qNames = dftr.getTypeNames();
-            QName qName = qNames.get(0);
-            FeatureTypeInfo featureTypeByName = catalog.getFeatureTypeByName(qName.getPrefix(), qName.getLocalPart());
-            response = getTemplateFeatureResponse(featureTypeByName, dftr.getOutputFormat());
-//        }
-//        if (param1 instanceof GetFeatureInfoRequest) {
-//            GetFeatureInfoRequest request = (GetFeatureInfoRequest) param1;
-//            if (request.getInfoFormat() != null) {
-//                response = getTemplateFeatureInfoResponse(request);
-//            }
-//        } else {
-//            GetFeatureRequest getFeature = GetFeatureRequest.adapt(param1);
-//            if (getFeature != null) {
-//                List<Query> queries = getFeature.getQueries();
-//                for (Query q : queries) {
-//                    List<FeatureTypeInfo> typeInfos = getFeatureTypeInfoFromQuery(q);
-//                    Response templateResponse = getTemplateFeatureResponse(typeInfos, getFeature.getOutputFormat());
-//                    if (templateResponse != null) response = templateResponse;
-//                }
-//            }
-//        }
+        //        if (param1 instanceof DescribeFeatureTypeRequest) {
+        DescribeFeatureTypeRequest dftr = DescribeFeatureTypeRequest.adapt(param1);
+        List<QName> qNames = dftr.getTypeNames();
+        QName qName = qNames.get(0);
+        FeatureTypeInfo featureTypeByName = catalog.getFeatureTypeByName(qName.getPrefix(), qName.getLocalPart());
+        response = getTemplateFeatureResponse(featureTypeByName, dftr.getOutputFormat());
+        //        }
+        //        if (param1 instanceof GetFeatureInfoRequest) {
+        //            GetFeatureInfoRequest request = (GetFeatureInfoRequest) param1;
+        //            if (request.getInfoFormat() != null) {
+        //                response = getTemplateFeatureInfoResponse(request);
+        //            }
+        //        } else {
+        //            GetFeatureRequest getFeature = GetFeatureRequest.adapt(param1);
+        //            if (getFeature != null) {
+        //                List<Query> queries = getFeature.getQueries();
+        //                for (Query q : queries) {
+        //                    List<FeatureTypeInfo> typeInfos = getFeatureTypeInfoFromQuery(q);
+        //                    Response templateResponse = getTemplateFeatureResponse(typeInfos,
+        // getFeature.getOutputFormat());
+        //                    if (templateResponse != null) response = templateResponse;
+        //                }
+        //            }
+        //        }
         return response;
     }
 
@@ -262,11 +260,11 @@ public class SchemaCallback extends AbstractDispatcherCallback {
                 return null;
             }
             response = new SchemaOverrideDescribeFeatureTypeResponse(gs, outputFormat, schema);
-//            List<RootBuilder> rootBuilders = getRootBuildersFromFeatureTypeInfo(typeInfos, outputFormat);
-//            if (rootBuilders.size() > 0) {
-//                TemplateIdentifier templateIdentifier = TemplateIdentifier.fromOutputFormat(outputFormat);
-//                response = OWSResponseFactory.getInstance().getFeatureResponse(templateIdentifier);
-//            }
+            //            List<RootBuilder> rootBuilders = getRootBuildersFromFeatureTypeInfo(typeInfos, outputFormat);
+            //            if (rootBuilders.size() > 0) {
+            //                TemplateIdentifier templateIdentifier = TemplateIdentifier.fromOutputFormat(outputFormat);
+            //                response = OWSResponseFactory.getInstance().getFeatureResponse(templateIdentifier);
+            //            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

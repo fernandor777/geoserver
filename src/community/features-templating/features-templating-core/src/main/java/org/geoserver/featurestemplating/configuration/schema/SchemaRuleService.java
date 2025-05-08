@@ -4,17 +4,16 @@
  */
 package org.geoserver.featurestemplating.configuration.schema;
 
-import org.geoserver.catalog.Catalog;
-import org.geoserver.catalog.FeatureTypeInfo;
-import org.geoserver.featurestemplating.configuration.TemplateLayerConfig;
-import org.geoserver.platform.GeoServerExtensions;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.geoserver.catalog.Catalog;
+import org.geoserver.catalog.FeatureTypeInfo;
+import org.geoserver.featurestemplating.configuration.TemplateLayerConfig;
+import org.geoserver.platform.GeoServerExtensions;
 
 /** Class that provides methods to add, update or delete Template Rules */
 public class SchemaRuleService {

@@ -4,20 +4,14 @@
  */
 package org.geoserver.featurestemplating.configuration.schema;
 
-import org.apache.commons.io.FilenameUtils;
-import org.geoserver.featurestemplating.builders.impl.RootBuilder;
-import org.geoserver.featurestemplating.readers.SchemaReaderConfiguration;
-import org.geoserver.featurestemplating.readers.TemplateReader;
-import org.geoserver.featurestemplating.readers.TemplateReaderConfiguration;
-import org.geoserver.featurestemplating.readers.TemplateReaderProvider;
-import org.geoserver.platform.FileWatcher;
-import org.geoserver.platform.resource.Resource;
+import static org.geoserver.platform.resource.Resource.Type.RESOURCE;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-
-import static org.geoserver.platform.resource.Resource.Type.RESOURCE;
+import org.geoserver.featurestemplating.builders.impl.RootBuilder;
+import org.geoserver.platform.FileWatcher;
+import org.geoserver.platform.resource.Resource;
 
 /** This class extends {@link FileWatcher} to provide functionalities to dynamically reload a template */
 public class SchemaWatcher extends FileWatcher<String> {

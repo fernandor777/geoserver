@@ -4,16 +4,13 @@
  */
 package org.geoserver.featurestemplating.configuration.schema;
 
-import org.geoserver.featurestemplating.builders.impl.RootBuilder;
-import org.geoserver.featurestemplating.readers.SchemaReaderConfiguration;
-import org.geoserver.featurestemplating.readers.TemplateReaderConfiguration;
-import org.geoserver.platform.FileWatcher;
-import org.geoserver.platform.resource.Resource;
-import org.geotools.util.logging.Logging;
-
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.geoserver.featurestemplating.builders.impl.RootBuilder;
+import org.geoserver.platform.FileWatcher;
+import org.geoserver.platform.resource.Resource;
+import org.geotools.util.logging.Logging;
 
 /**
  * This class handles the management of a single template file, giving access to the ${@link RootBuilder} produced from

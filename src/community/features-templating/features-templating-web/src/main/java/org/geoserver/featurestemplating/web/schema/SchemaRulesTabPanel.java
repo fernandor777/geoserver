@@ -4,6 +4,9 @@
  */
 package org.geoserver.featurestemplating.web.schema;
 
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.wicket.model.CompoundPropertyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.PropertyModel;
@@ -11,19 +14,10 @@ import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.LayerInfo;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.catalog.ResourceInfo;
-import org.geoserver.featurestemplating.configuration.FeatureTypeTemplateDAOListener;
-import org.geoserver.featurestemplating.configuration.TemplateInfoDAO;
-import org.geoserver.featurestemplating.configuration.TemplateRule;
 import org.geoserver.featurestemplating.configuration.schema.SchemaInfoDAO;
 import org.geoserver.featurestemplating.configuration.schema.SchemaRule;
 import org.geoserver.featurestemplating.configuration.schema.SchemaTypeTemplateDAOListener;
-import org.geoserver.featurestemplating.web.TemplateRuleConfigurationPanel;
-import org.geoserver.featurestemplating.web.TemplateRulesTablePanel;
 import org.geoserver.web.publish.PublishedEditTabPanel;
-
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 
 public class SchemaRulesTabPanel extends PublishedEditTabPanel<LayerInfo> {
 

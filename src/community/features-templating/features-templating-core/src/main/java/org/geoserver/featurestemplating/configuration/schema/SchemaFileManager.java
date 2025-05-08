@@ -4,16 +4,15 @@
  */
 package org.geoserver.featurestemplating.configuration.schema;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.resource.Resource;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 
 /** Helper class that provides methods to manage the template file. */
 public class SchemaFileManager {

@@ -4,13 +4,12 @@
  */
 package org.geoserver.featurestemplating.configuration.schema;
 
+import java.util.Optional;
+import java.util.Set;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.featurestemplating.configuration.TemplateLayerConfig;
 import org.geoserver.platform.GeoServerExtensions;
-
-import java.util.Optional;
-import java.util.Set;
 
 /** A Template event listener that handle Template rules update when a TemplateInfo is deleted or modified. */
 public class SchemaTypeTemplateDAOListener implements SchemaDAOListener {
@@ -23,8 +22,7 @@ public class SchemaTypeTemplateDAOListener implements SchemaDAOListener {
 
     @Override
     public void handleDeleteEvent(SchemaInfoEvent deleteEvent) {
-        SchemaLayerConfig layerConfig =
-                fti.getMetadata().get(SchemaLayerConfig.METADATA_KEY, SchemaLayerConfig.class);
+        SchemaLayerConfig layerConfig = fti.getMetadata().get(SchemaLayerConfig.METADATA_KEY, SchemaLayerConfig.class);
         SchemaInfo ti = deleteEvent.getSource();
         if (layerConfig != null) {
             Set<SchemaRule> rules = layerConfig.getSchemaRules();
@@ -41,8 +39,7 @@ public class SchemaTypeTemplateDAOListener implements SchemaDAOListener {
 
     @Override
     public void handleUpdateEvent(SchemaInfoEvent updateEvent) {
-        SchemaLayerConfig layerConfig =
-                fti.getMetadata().get(SchemaLayerConfig.METADATA_KEY, SchemaLayerConfig.class);
+        SchemaLayerConfig layerConfig = fti.getMetadata().get(SchemaLayerConfig.METADATA_KEY, SchemaLayerConfig.class);
         if (layerConfig != null) {
             Set<SchemaRule> rules = layerConfig.getSchemaRules();
             if (!rules.isEmpty()) {

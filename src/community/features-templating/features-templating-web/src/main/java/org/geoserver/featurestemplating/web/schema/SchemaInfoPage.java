@@ -4,6 +4,7 @@
  */
 package org.geoserver.featurestemplating.web.schema;
 
+import java.util.List;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.attributes.AjaxCallListener;
@@ -13,19 +14,15 @@ import org.apache.wicket.core.util.string.JavaScriptUtils;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
-import org.geoserver.featurestemplating.configuration.FileTemplateDAOListener;
 import org.geoserver.featurestemplating.configuration.schema.FileSchemaDAOListener;
 import org.geoserver.featurestemplating.configuration.schema.SchemaInfo;
 import org.geoserver.featurestemplating.configuration.schema.SchemaInfoDAO;
 import org.geoserver.featurestemplating.configuration.schema.SchemaService;
-import org.geoserver.featurestemplating.web.TemplateConfigurationPage;
 import org.geoserver.web.GeoServerSecuredPage;
 import org.geoserver.web.wicket.GeoServerDataProvider;
 import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.geoserver.web.wicket.ParamResourceModel;
 import org.geoserver.web.wicket.SimpleAjaxLink;
-
-import java.util.List;
 
 public class SchemaInfoPage extends GeoServerSecuredPage {
 
@@ -60,8 +57,7 @@ public class SchemaInfoPage extends GeoServerSecuredPage {
             protected Component getComponentForProperty(
                     String id, IModel<SchemaInfo> itemModel, GeoServerDataProvider.Property<SchemaInfo> property) {
                 if (property.equals(SchemaInfoProvider.NAME)) {
-                    return new SimpleAjaxLink<SchemaInfo>(
-                            id, itemModel, SchemaInfoProvider.NAME.getModel(itemModel)) {
+                    return new SimpleAjaxLink<SchemaInfo>(id, itemModel, SchemaInfoProvider.NAME.getModel(itemModel)) {
 
                         @Override
                         protected void onClick(AjaxRequestTarget target) {
@@ -125,8 +121,7 @@ public class SchemaInfoPage extends GeoServerSecuredPage {
 
                     @Override
                     public CharSequence getPrecondition(Component component) {
-                        CharSequence message =
-                                new ParamResourceModel("confirmRemove", SchemaInfoPage.this).getString();
+                        CharSequence message = new ParamResourceModel("confirmRemove", SchemaInfoPage.this).getString();
                         message = JavaScriptUtils.escapeQuotes(message);
                         return "return confirm('" + message + "');";
                     }
@@ -157,8 +152,7 @@ public class SchemaInfoPage extends GeoServerSecuredPage {
 
                     @Override
                     public CharSequence getPrecondition(Component component) {
-                        CharSequence message =
-                                new ParamResourceModel("confirmRemove", SchemaInfoPage.this).getString();
+                        CharSequence message = new ParamResourceModel("confirmRemove", SchemaInfoPage.this).getString();
                         message = JavaScriptUtils.escapeQuotes(message);
                         return "return confirm('" + message + "');";
                     }

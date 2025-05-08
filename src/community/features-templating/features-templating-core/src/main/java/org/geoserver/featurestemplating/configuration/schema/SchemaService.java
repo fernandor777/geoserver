@@ -4,7 +4,6 @@
  */
 package org.geoserver.featurestemplating.configuration.schema;
 
-
 /** This class provides the business logic to handle save, update and delete operation on a template. */
 public class SchemaService {
 

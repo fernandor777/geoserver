@@ -4,29 +4,14 @@
  */
 package org.geoserver.featurestemplating.ows.wfs;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.config.GeoServer;
-import org.geoserver.featurestemplating.builders.EncodingHints;
-import org.geoserver.featurestemplating.builders.VendorOptions;
-import org.geoserver.featurestemplating.builders.impl.RootBuilder;
-import org.geoserver.featurestemplating.configuration.TemplateIdentifier;
-import org.geoserver.featurestemplating.configuration.TemplateLoader;
-import org.geoserver.featurestemplating.configuration.schema.SchemaLoader;
-import org.geoserver.featurestemplating.writers.GeoJSONWriter;
-import org.geoserver.featurestemplating.writers.TemplateOutputWriter;
 import org.geoserver.platform.Operation;
 import org.geoserver.platform.ServiceException;
 import org.geoserver.wfs.WFSDescribeFeatureTypeOutputFormat;
-import org.geoserver.wfs.WFSGetFeatureOutputFormat;
-import org.geoserver.wfs.request.FeatureCollectionResponse;
-import org.geotools.geometry.jts.ReferencedEnvelope;
-
-import java.io.IOException;
-import java.io.OutputStream;
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-
-import static org.geoserver.featurestemplating.builders.EncodingHints.isSingleFeatureRequest;
 
 /** Write a valid GeoJSON output from a template */
 public class SchemaOverrideDescribeFeatureTypeResponse extends WFSDescribeFeatureTypeOutputFormat {
@@ -35,8 +20,7 @@ public class SchemaOverrideDescribeFeatureTypeResponse extends WFSDescribeFeatur
 
     private String content;
 
-    public SchemaOverrideDescribeFeatureTypeResponse(
-            GeoServer gs, String outputFormat, String content) {
+    public SchemaOverrideDescribeFeatureTypeResponse(GeoServer gs, String outputFormat, String content) {
         super(gs, outputFormat);
         this.outputFormat = outputFormat;
         this.content = content;
@@ -48,7 +32,8 @@ public class SchemaOverrideDescribeFeatureTypeResponse extends WFSDescribeFeatur
     }
 
     @Override
-    protected void write(FeatureTypeInfo[] featureTypeInfos, OutputStream output, Operation describeFeatureType) throws IOException {
+    protected void write(FeatureTypeInfo[] featureTypeInfos, OutputStream output, Operation describeFeatureType)
+            throws IOException {
         try {
             output.write(content.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {

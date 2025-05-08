@@ -5,7 +5,6 @@
 package org.geoserver.featurestemplating.configuration.schema;
 
 import org.geoserver.config.impl.GeoServerLifecycleHandler;
-import org.geoserver.featurestemplating.configuration.TemplateLoader;
 
 /**
  * Cleans the cache whenever the reset/reload config is triggered. Mostly useful for tests and REST automation, as the

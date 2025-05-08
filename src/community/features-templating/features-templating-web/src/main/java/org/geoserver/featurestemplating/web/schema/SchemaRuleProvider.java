@@ -4,15 +4,14 @@
  */
 package org.geoserver.featurestemplating.web.schema;
 
-import org.geoserver.featurestemplating.configuration.schema.SchemaRule;
-import org.geoserver.web.wicket.GeoServerDataProvider;
-import org.geoserver.web.wicket.LiveCollectionModel;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import org.geoserver.featurestemplating.configuration.schema.SchemaRule;
+import org.geoserver.web.wicket.GeoServerDataProvider;
+import org.geoserver.web.wicket.LiveCollectionModel;
 
 class SchemaRuleProvider extends GeoServerDataProvider<SchemaRule> {
     static final Property<SchemaRule> PRIORITY = new BeanProperty<>("priority", "priority");

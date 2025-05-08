@@ -4,16 +4,15 @@
  */
 package org.geoserver.featurestemplating.configuration;
 
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Objects;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.config.GeoServerDataDirectory;
 import org.geotools.api.feature.type.FeatureType;
 import org.geotools.data.complex.feature.type.ComplexFeatureTypeImpl;
 import org.geotools.data.complex.feature.type.Types;
 import org.xml.sax.helpers.NamespaceSupport;
-
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Objects;
 
 /** Manage the cache and the retrieving for all templates files */
 public abstract class AbstractLoader {

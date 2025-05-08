@@ -4,6 +4,10 @@
  */
 package org.geoserver.featurestemplating.web.schema;
 
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.form.AjaxSubmitLink;
 import org.apache.wicket.markup.html.basic.Label;
@@ -30,11 +34,6 @@ import org.geoserver.featurestemplating.web.OutputFormatsDropDown;
 import org.geoserver.util.XCQL;
 import org.geoserver.web.wicket.ParamResourceModel;
 import org.geotools.filter.text.cql2.CQLException;
-
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 // TODO WICKET8 - Verify this page works OK
 public class SchemaRuleConfigurationPanel extends Panel {
@@ -100,7 +99,7 @@ public class SchemaRuleConfigurationPanel extends Panel {
                 super.onSubmit(target);
                 cleanFeedbackPanel();
                 SchemaRule rule = theForm.getModelObject();
-//                if (!validateAndReport(rule)) return;
+                //                if (!validateAndReport(rule)) return;
                 updateModelRules(rule);
                 target.add(tablePanel);
                 target.add(tablePanel.getTable());

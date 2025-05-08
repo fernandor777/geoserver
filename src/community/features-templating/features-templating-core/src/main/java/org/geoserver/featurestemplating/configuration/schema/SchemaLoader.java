@@ -7,14 +7,20 @@ package org.geoserver.featurestemplating.configuration.schema;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.featurestemplating.builders.impl.RootBuilder;
 import org.geoserver.featurestemplating.builders.visitors.SimplifiedPropertyReplacer;
 import org.geoserver.featurestemplating.configuration.AbstractLoader;
 import org.geoserver.featurestemplating.configuration.TemplateIdentifier;
-import org.geoserver.featurestemplating.configuration.TemplateRule;
-import org.geoserver.featurestemplating.configuration.TemplateRuleService;
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Request;
 import org.geoserver.platform.GeoServerExtensions;
@@ -26,15 +32,6 @@ import org.geotools.data.complex.FeatureTypeMapping;
 import org.geotools.data.complex.feature.type.ComplexFeatureTypeImpl;
 import org.geotools.data.complex.feature.type.Types;
 import org.xml.sax.helpers.NamespaceSupport;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 /** Manage the cache and the retrieving for all templates files */
 public class SchemaLoader extends AbstractLoader {
@@ -60,13 +57,11 @@ public class SchemaLoader extends AbstractLoader {
      * @return the RootBuilder.
      * @throws ExecutionException
      */
-    public String getSchema(FeatureTypeInfo typeInfo, String outputFormat, Request request)
-            throws ExecutionException {
+    public String getSchema(FeatureTypeInfo typeInfo, String outputFormat, Request request) throws ExecutionException {
         String schemaIdentifier =
                 request == null ? evaluatesTemplateRule(typeInfo) : evaluatesTemplateRule(typeInfo, request);
         if (schemaIdentifier == null)
-            schemaIdentifier =
-                    TemplateIdentifier.fromOutputFormat(outputFormat).getFilename();
+            schemaIdentifier = TemplateIdentifier.fromOutputFormat(outputFormat).getFilename();
         return getSchemaByIdentifier(typeInfo, schemaIdentifier);
     }
 
@@ -144,12 +139,12 @@ public class SchemaLoader extends AbstractLoader {
 
     // evaluates the template rule associated to the featureTypeInfo and return the TemplateInfo id.
     private String evaluatesTemplateRule(FeatureTypeInfo featureTypeInfo, Request request) {
-        List<TemplateRule> matching = new ArrayList<>();
-        TemplateRuleService ruleService = new TemplateRuleService(featureTypeInfo);
-        Set<TemplateRule> rules = ruleService.getRules();
+        List<SchemaRule> matching = new ArrayList<>();
+        SchemaRuleService ruleService = new SchemaRuleService(featureTypeInfo);
+        Set<SchemaRule> rules = ruleService.getRules();
         String result = null;
         if (rules != null && !rules.isEmpty()) {
-            for (TemplateRule r : rules) {
+            for (SchemaRule r : rules) {
                 if (r.applyRule(request)) matching.add(r);
             }
         }
@@ -159,12 +154,12 @@ public class SchemaLoader extends AbstractLoader {
         return result;
     }
 
-    private String getHighestPriorityIdentifier(List<TemplateRule> rules) {
+    private String getHighestPriorityIdentifier(List<SchemaRule> rules) {
         if (rules.size() > 1) {
-            TemplateRule.TemplateRuleComparator comparator = new TemplateRule.TemplateRuleComparator();
+            SchemaRule.SchemaRuleComparator comparator = new SchemaRule.SchemaRuleComparator();
             rules.sort(comparator);
         }
-        return rules.get(0).getTemplateIdentifier();
+        return rules.get(0).getSchemaIdentifier();
     }
 
     /**

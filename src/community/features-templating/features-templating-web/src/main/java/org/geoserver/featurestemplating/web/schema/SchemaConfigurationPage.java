@@ -4,8 +4,15 @@
  */
 package org.geoserver.featurestemplating.web.schema;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.apache.wicket.ajax.AjaxRequestTarget;
+import org.apache.wicket.ajax.attributes.AjaxRequestAttributes;
 import org.apache.wicket.ajax.markup.html.form.AjaxSubmitLink;
 import org.apache.wicket.extensions.ajax.markup.html.tabs.AjaxTabbedPanel;
 import org.apache.wicket.extensions.markup.html.tabs.AbstractTab;
@@ -22,18 +29,9 @@ import org.apache.wicket.model.PropertyModel;
 import org.geoserver.featurestemplating.configuration.schema.SchemaFileManager;
 import org.geoserver.featurestemplating.configuration.schema.SchemaInfo;
 import org.geoserver.featurestemplating.configuration.schema.SchemaService;
-import org.geoserver.featurestemplating.web.TemplateInfoDataPanel;
-import org.geoserver.featurestemplating.web.TemplatePreviewPanel;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.web.GeoServerSecuredPage;
 import org.geoserver.web.wicket.CodeMirrorEditor;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
 
 // TODO WICKET8 - Verify this page works OK
 public class SchemaConfigurationPage extends GeoServerSecuredPage {
@@ -58,13 +56,13 @@ public class SchemaConfigurationPage extends GeoServerSecuredPage {
     private void initUI(IModel<SchemaInfo> model) {
         form = new Form<>("schemaForm", model);
         List<ITab> tabs = new ArrayList<>();
-//        PanelCachingTab previewTab = new PanelCachingTab(new AbstractTab(new Model<>("Preview")) {
-//            @Override
-//            public Panel getPanel(String id) {
-//                previewPanel = new TemplatePreviewPanel(id, SchemaConfigurationPage.this);
-//                return previewPanel;
-//            }
-//        });
+        //        PanelCachingTab previewTab = new PanelCachingTab(new AbstractTab(new Model<>("Preview")) {
+        //            @Override
+        //            public Panel getPanel(String id) {
+        //                previewPanel = new TemplatePreviewPanel(id, SchemaConfigurationPage.this);
+        //                return previewPanel;
+        //            }
+        //        });
         PanelCachingTab dataTab = new PanelCachingTab(new AbstractTab(new Model<>("Data")) {
             @Override
             public Panel getPanel(String id) {
@@ -166,6 +164,12 @@ public class SchemaConfigurationPage extends GeoServerSecuredPage {
                 super.onError(target);
                 addFeedbackPanels(target);
             }
+
+            @Override
+            protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
+                super.updateAjaxAttributes(attributes);
+                attributes.getAjaxCallListeners().add(editor.getSaveDecorator());
+            }
         };
         return submitLink;
     }
@@ -216,7 +220,7 @@ public class SchemaConfigurationPage extends GeoServerSecuredPage {
                     @Override
                     public void onSubmit(AjaxRequestTarget target) {
                         SchemaInfo schemaInfo = SchemaConfigurationPage.this.form.getModelObject();
-//                        if (!validateAndReport(schemaInfo)) return;
+                        //                        if (!validateAndReport(schemaInfo)) return;
                         String rawSchema = getStringSchemaFromInput();
                         saveSchemaInfo(schemaInfo, rawSchema);
                         setSelectedTab(index);

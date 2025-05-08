@@ -4,9 +4,8 @@
  */
 package org.geoserver.featurestemplating.readers;
 
-import org.geoserver.platform.resource.Resource;
-
 import java.io.IOException;
+import org.geoserver.platform.resource.Resource;
 
 /** This class provides the necessary logic to retrieve a reader based on the extension value passed. */
 public class SchemaReaderProvider {

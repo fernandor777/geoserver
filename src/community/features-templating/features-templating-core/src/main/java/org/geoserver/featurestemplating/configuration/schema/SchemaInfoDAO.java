@@ -4,10 +4,9 @@
  */
 package org.geoserver.featurestemplating.configuration.schema;
 
+import java.util.List;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.platform.GeoServerExtensions;
-
-import java.util.List;
 
 /** Base interface for TemplateInfo Data Access. */
 public interface SchemaInfoDAO {

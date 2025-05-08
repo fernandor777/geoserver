@@ -4,6 +4,14 @@
  */
 package org.geoserver.featurestemplating.web.schema;
 
+import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.CQL_FILTER;
+import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.NAME;
+import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.OUTPUT_FORMAT;
+import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.PRIORITY;
+import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.PROFILE_FILTER;
+
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
@@ -12,27 +20,13 @@ import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.PropertyModel;
 import org.geoserver.catalog.MetadataMap;
-import org.geoserver.featurestemplating.configuration.TemplateLayerConfig;
-import org.geoserver.featurestemplating.configuration.TemplateRule;
 import org.geoserver.featurestemplating.configuration.schema.SchemaLayerConfig;
 import org.geoserver.featurestemplating.configuration.schema.SchemaRule;
-import org.geoserver.featurestemplating.web.TemplateRuleConfigurationPanel;
 import org.geoserver.web.util.MapModel;
 import org.geoserver.web.wicket.GeoServerDataProvider;
 import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.geoserver.web.wicket.LiveCollectionModel;
 import org.geoserver.web.wicket.SimpleAjaxLink;
-
-import java.util.HashSet;
-import java.util.Set;
-
-import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.PRIORITY;
-import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.NAME;
-import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.OUTPUT_FORMAT;
-import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.CQL_FILTER;
-import static org.geoserver.featurestemplating.web.schema.SchemaRuleProvider.PROFILE_FILTER;
-
-
 
 public class SchemaRulesTablePanel extends Panel {
 
@@ -47,8 +41,7 @@ public class SchemaRulesTablePanel extends Panel {
     public SchemaRulesTablePanel(String id, IModel<MetadataMap> metadataModel) {
 
         super(id);
-        MapModel<SchemaLayerConfig> mapModelLayerConf =
-                new MapModel<>(metadataModel, SchemaLayerConfig.METADATA_KEY);
+        MapModel<SchemaLayerConfig> mapModelLayerConf = new MapModel<>(metadataModel, SchemaLayerConfig.METADATA_KEY);
         if (mapModelLayerConf.getObject() == null) mapModelLayerConf.setObject(new SchemaLayerConfig());
         this.model = LiveCollectionModel.set(new PropertyModel<Set<SchemaRule>>(mapModelLayerConf, "schemaRules"));
         GeoServerDataProvider<SchemaRule> dataProvider = new SchemaRuleProvider(model);
