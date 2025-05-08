@@ -12,6 +12,7 @@ import org.geoserver.featurestemplating.builders.impl.RootBuilder;
 import org.geoserver.featurestemplating.configuration.TemplateIdentifier;
 import org.geoserver.featurestemplating.configuration.TemplateLoader;
 import org.geoserver.featurestemplating.configuration.schema.SchemaLoader;
+import org.geoserver.featurestemplating.ows.wfs.SchemaOverrideDescribeFeatureTypeResponse;
 import org.geoserver.featurestemplating.request.TemplatePathVisitor;
 import org.geoserver.ows.AbstractDispatcherCallback;
 import org.geoserver.ows.Dispatcher;
@@ -177,12 +178,13 @@ public class SchemaCallback extends AbstractDispatcherCallback {
 
     private Response findResponse(Object param1) {
         Response response = null;
-        if (param1 instanceof DescribeFeatureTypeRequest) {
+//        if (param1 instanceof DescribeFeatureTypeRequest) {
             DescribeFeatureTypeRequest dftr = DescribeFeatureTypeRequest.adapt(param1);
-            QName qName = dftr.getTypeName();
+            List<QName> qNames = dftr.getTypeNames();
+            QName qName = qNames.get(0);
             FeatureTypeInfo featureTypeByName = catalog.getFeatureTypeByName(qName.getPrefix(), qName.getLocalPart());
-            Response templateFeatureResponse = getTemplateFeatureResponse(featureTypeByName, dftr.getOutputFormat());
-        }
+            response = getTemplateFeatureResponse(featureTypeByName, dftr.getOutputFormat());
+//        }
 //        if (param1 instanceof GetFeatureInfoRequest) {
 //            GetFeatureInfoRequest request = (GetFeatureInfoRequest) param1;
 //            if (request.getInfoFormat() != null) {
@@ -255,7 +257,11 @@ public class SchemaCallback extends AbstractDispatcherCallback {
     private Response getTemplateFeatureResponse(FeatureTypeInfo typeInfos, String outputFormat) {
         Response response = null;
         try {
-            configuration.getSchema(typeInfos, outputFormat);
+            String schema = configuration.getSchema(typeInfos, outputFormat);
+            if (schema == null) {
+                return null;
+            }
+            response = new SchemaOverrideDescribeFeatureTypeResponse(gs, outputFormat, schema);
 //            List<RootBuilder> rootBuilders = getRootBuildersFromFeatureTypeInfo(typeInfos, outputFormat);
 //            if (rootBuilders.size() > 0) {
 //                TemplateIdentifier templateIdentifier = TemplateIdentifier.fromOutputFormat(outputFormat);
