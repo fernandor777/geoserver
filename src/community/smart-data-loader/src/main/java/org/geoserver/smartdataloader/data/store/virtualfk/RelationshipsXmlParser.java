@@ -1,0 +1,42 @@
+package org.geoserver.smartdataloader.data.store.virtualfk;
+
+import org.w3c.dom.*;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+
+public class RelationshipsXmlParser {
+    public static Relationships parse(String xml) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+        doc.getDocumentElement().normalize();
+
+        Relationships relationships = new Relationships();
+        NodeList relNodes = doc.getElementsByTagName("relationship");
+        for (int i = 0; i < relNodes.getLength(); i++) {
+            Element relElem = (Element) relNodes.item(i);
+            String name = relElem.getAttribute("name");
+            String cardinality = relElem.getAttribute("cardinality");
+
+            EntityRef source = parseEntityRef((Element) relElem.getElementsByTagName("source").item(0));
+            EntityRef target = parseEntityRef((Element) relElem.getElementsByTagName("target").item(0));
+
+            Relationship relationship = new Relationship(name, cardinality, source, target);
+            relationships.addRelationship(relationship);
+        }
+        return relationships;
+    }
+
+    private static EntityRef parseEntityRef(Element elem) {
+        String schema = elem.getAttribute("schema");
+        String entity = elem.getAttribute("entity");
+        String kind = elem.getAttribute("kind");
+        Element keyElem = (Element) elem.getElementsByTagName("key").item(0);
+        String column = keyElem.getAttribute("column");
+        Key key = new Key(column);
+        return new EntityRef(schema, entity, kind, key);
+    }
+}
+
