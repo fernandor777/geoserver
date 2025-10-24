@@ -25,7 +25,7 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
         JdbcDataStoreMetadataConfig jdbcConfig = (JdbcDataStoreMetadataConfig) this.config;
         // load entities
         entities = new ArrayList<>();
-        List<JdbcTableMetadata> tableList = JdbcHelper.getInstance()
+        List<JdbcTableMetadata> tableList = DefaultJdbcHelper.getInstance()
                 .getSchemaTables(jdbcConfig.getConnection().getMetaData(), jdbcConfig.getSchema());
         entities.addAll(tableList);
         // load attributes and relations for each entity
@@ -34,13 +34,13 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
         while (iTables.hasNext()) {
             JdbcTableMetadata jTable = iTables.next();
             // load attributes
-            List<AttributeMetadata> attributes = JdbcHelper.getInstance()
+            List<AttributeMetadata> attributes = DefaultJdbcHelper.getInstance()
                     .getColumnsByTable(jdbcConfig.getConnection().getMetaData(), jTable);
             attributes.forEach(attributeMetadata -> {
                 jTable.addAttribute(attributeMetadata);
             });
             // load relations
-            List<RelationMetadata> tableRelations = JdbcHelper.getInstance()
+            List<RelationMetadata> tableRelations = DefaultJdbcHelper.getInstance()
                     .getRelationsByTable(jdbcConfig.getConnection().getMetaData(), jTable);
             tableRelations.forEach(relationMetadata -> {
                 jTable.addRelation(relationMetadata);
