@@ -47,8 +47,9 @@ public class JdbcHelper {
         if (tables != null) {
             List<JdbcTableMetadata> tableList = new ArrayList<>();
             while (tables.next()) {
-                if (tables.getString("TABLE_TYPE") != null
-                        && tables.getString("TABLE_TYPE").equals("TABLE")) {
+                String tableType = tables.getString("TABLE_TYPE");
+                if (tableType != null
+                        && (tableType.equals("TABLE") || tableType.equals("VIEW"))) {
                     tableList.add(new JdbcTableMetadata(
                             metaData.getConnection(),
                             tables.getString("TABLE_CAT"),
