@@ -38,6 +38,7 @@ import org.geoserver.smartdataloader.metadata.DataStoreMetadata;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataFactory;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
+import org.geoserver.smartdataloader.metadata.jdbc.DefaultJdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
 import org.geoserver.web.data.store.StoreEditPanel;
 import org.geoserver.web.data.store.panel.TextParamPanel;
@@ -408,7 +409,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             jdbcDataStore = factory.createDataStore(ds.getConnectionParameters());
             DataStoreMetadataConfig config = new JdbcDataStoreMetadataConfig(
                     jdbcDataStore, ds.getConnectionParameters().get("passwd").toString());
-            dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config);
+            dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config, new DefaultJdbcHelper());
         } catch (Exception e) {
             throw new RuntimeException("Error retrieving metadata from DB.");
         }

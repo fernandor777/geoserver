@@ -35,13 +35,18 @@ import org.geoserver.platform.resource.Resource;
 import org.geoserver.smartdataloader.data.store.ExclusionsDomainModelVisitor;
 import org.geoserver.smartdataloader.data.store.ExpressionOverridesDomainModelVisitor;
 import org.geoserver.smartdataloader.data.store.SmartOverrideRulesParser;
+import org.geoserver.smartdataloader.data.store.virtualfk.Relationships;
+import org.geoserver.smartdataloader.data.store.virtualfk.RelationshipsXmlParser;
 import org.geoserver.smartdataloader.domain.DomainModelBuilder;
 import org.geoserver.smartdataloader.domain.DomainModelConfig;
 import org.geoserver.smartdataloader.domain.entities.DomainModel;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadata;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataFactory;
+import org.geoserver.smartdataloader.metadata.jdbc.DefaultJdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelper;
+import org.geoserver.smartdataloader.metadata.jdbc.VirtualFkJdbcHelper;
 import org.geoserver.smartdataloader.visitors.appschema.AppSchemaVisitor;
 import org.geoserver.smartdataloader.visitors.gml.GmlSchemaVisitor;
 import org.geotools.api.data.DataAccess;
@@ -245,7 +250,17 @@ public class SmartDataLoaderDataAccessFactory implements DataAccessFactory {
             jdbcDataStore = factory.createDataStore(connectionParameters);
             DataStoreMetadataConfig config = new JdbcDataStoreMetadataConfig(
                     jdbcDataStore, connectionParameters.get("passwd").toString());
-            dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config);
+            Relationships relationships = new Relationships();
+            String relationshipsXml = lookup(VIRTUAL_RELATIONSHIPS, params, String.class);
+            if (relationshipsXml != null && !relationshipsXml.isBlank()) {
+                try {
+                    relationships = RelationshipsXmlParser.parse(relationshipsXml);
+                } catch (Exception e) {
+                    throw new RuntimeException("Error parsing virtual relationships configuration.", e);
+                }
+            }
+            JdbcHelper jdbcHelper = new VirtualFkJdbcHelper(new DefaultJdbcHelper(), relationships);
+            dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config, jdbcHelper);
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Sql exception while retrieving metadata from the DB " + e.getMessage());
             StringBuilder sb = new StringBuilder("Error while acquiring JDBC connection");

@@ -26,23 +26,27 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     private final Relationships relationships;
 
     public VirtualFkJdbcHelper(Relationships relationships) {
-        this(DefaultJdbcHelper.getInstance(), relationships);
+        this(new DefaultJdbcHelper(), relationships);
     }
 
     /** Allow injecting a different delegate (useful for testing or custom implementations). */
     public VirtualFkJdbcHelper(JdbcHelper delegate, Relationships relationships) {
-        this.delegate = (delegate != null) ? delegate : DefaultJdbcHelper.getInstance();
-        this.relationships = relationships;
+        this.delegate = (delegate != null) ? delegate : new DefaultJdbcHelper();
+        this.relationships = (relationships != null) ? relationships : new Relationships();
     }
 
     @Override
     public List<JdbcTableMetadata> getSchemaTables(DatabaseMetaData metaData, String schema) throws Exception {
-        return delegate.getSchemaTables(metaData, schema);
+        List<JdbcTableMetadata> tables = delegate.getSchemaTables(metaData, schema);
+        applyVirtualHelper(tables);
+        return tables;
     }
 
     @Override
     public List<JdbcTableMetadata> getTables(DatabaseMetaData metaData) throws Exception {
-        return delegate.getTables(metaData);
+        List<JdbcTableMetadata> tables = delegate.getTables(metaData);
+        applyVirtualHelper(tables);
+        return tables;
     }
 
     @Override
@@ -72,6 +76,9 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     @Override
     public List<RelationMetadata> getRelationsByTable(DatabaseMetaData metaData, JdbcTableMetadata table)
             throws Exception {
+        if (table != null) {
+            table.setJdbcHelper(this);
+        }
         List<RelationMetadata> relations = new ArrayList<>();
         for (Relationship relationship : relationships.getRelationships()) {
             if (relationship.getSource().getEntity().equals(table.getName())
@@ -90,6 +97,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
                         .orElse(null);
                 // find target table metadata
                 List<JdbcTableMetadata> targetSchemaTables = delegate.getSchemaTables(metaData, targetSchema);
+                applyVirtualHelper(targetSchemaTables);
                 JdbcTableMetadata targetTableMetadata = targetSchemaTables.stream()
                         .filter(t -> t.getName().equals(targetTable))
                         .findFirst()
@@ -120,9 +128,6 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     }
 
     private boolean isVirtualForeignKey(JdbcTableMetadata table, String columnName) {
-        if (relationships == null) {
-            return false;
-        }
         // check if column matches any source in relationships
         return relationships.getRelationships().stream()
                 .anyMatch(rel -> rel.getSource().getEntity().equals(table.getName())
@@ -193,5 +198,16 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     public SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>>
             getInversedForeignKeysByTable(DatabaseMetaData metaData, JdbcTableMetadata table) throws Exception {
         return delegate.getInversedForeignKeysByTable(metaData, table);
+    }
+
+    private void applyVirtualHelper(List<JdbcTableMetadata> tables) {
+        if (tables == null) {
+            return;
+        }
+        for (JdbcTableMetadata table : tables) {
+            if (table != null) {
+                table.setJdbcHelper(this);
+            }
+        }
     }
 }
