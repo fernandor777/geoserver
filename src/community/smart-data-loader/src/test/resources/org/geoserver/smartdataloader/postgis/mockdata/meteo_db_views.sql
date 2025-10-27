@@ -68,24 +68,10 @@ INSERT INTO smartappschematest.meteo_stations_maintainers (id, station_id, mante
 ALTER TABLE ONLY smartappschematest.meteo_observations ADD CONSTRAINT meteo_observations_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY smartappschematest.meteo_parameters ADD CONSTRAINT meteo_parameters_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY smartappschematest.meteo_stations ADD CONSTRAINT meteo_stations_pkey PRIMARY KEY (id);
--- Removed the foreign keys to test virtual relationships:
---ALTER TABLE ONLY smartappschematest.meteo_observations ADD CONSTRAINT fk_parameter FOREIGN KEY (parameter_id) REFERENCES smartappschematest.meteo_parameters(id);
---ALTER TABLE ONLY smartappschematest.meteo_observations ADD CONSTRAINT fk_station FOREIGN KEY (station_id) REFERENCES smartappschematest.meteo_stations(id);
+
 ALTER TABLE ONLY smartappschematest.meteo_maintainers ADD CONSTRAINT meteo_manteneirs_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY smartappschematest.meteo_stations_maintainers ADD CONSTRAINT meteo_stations_manteneirs_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY smartappschematest.meteo_stations_maintainers ADD CONSTRAINT fk_stations_rel FOREIGN KEY (station_id) REFERENCES smartappschematest.meteo_stations(id);
 ALTER TABLE ONLY smartappschematest.meteo_stations_maintainers ADD CONSTRAINT fk_maintainers_rel FOREIGN KEY (manteiner_id) REFERENCES smartappschematest.meteo_maintainers(id);
 
-CREATE OR REPLACE VIEW smartappschematest.v_meteo_observations_parameters AS
-SELECT
-    o.id AS observation_id,
-    o.station_id,
-    o.parameter_id,
-    p.param_name,
-    p.param_unit,
-    o.time,
-    o.value,
-    o.decimal_value
-FROM smartappschematest.meteo_observations o
-JOIN smartappschematest.meteo_parameters p
-  ON o.parameter_id = p.id;
+CREATE OR REPLACE VIEW smartappschematest.v_meteo_observations_parameters AS SELECT o.id AS observation_id, o.station_id, o.parameter_id, p.param_name, p.param_unit, o.time, o.value, o.decimal_value FROM smartappschematest.meteo_observations o JOIN smartappschematest.meteo_parameters p ON o.parameter_id = p.id;
