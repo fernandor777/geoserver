@@ -1,32 +1,31 @@
 package org.geoserver.smartdataloader.data.store.virtualfk;
 
-import org.junit.Test;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+
+import org.junit.Test;
 
 public class RelationshipsXmlParserTest {
 
     @Test
     public void testParseValidXml() throws Exception {
-        String xml = "<relationships>" +
-                "<relationship name=\"observations_has_station\" cardinality=\"n:1\">" +
-                "<source schema=\"public\" entity=\"observations_v\" kind=\"VIEW\">" +
-                "<key column=\"station_id\"/>" +
-                "</source>" +
-                "<target schema=\"public\" entity=\"stations\" kind=\"TABLE\">" +
-                "<key column=\"id\"/>" +
-                "</target>" +
-                "</relationship>" +
-                "<relationship name=\"station_parameters\" cardinality=\"1:n\">" +
-                "<source schema=\"public\" entity=\"stations\" kind=\"TABLE\">" +
-                "<key column=\"id\"/>" +
-                "</source>" +
-                "<target schema=\"public\" entity=\"parameters_v\" kind=\"VIEW\">" +
-                "<key column=\"station_id\"/>" +
-                "</target>" +
-                "</relationship>" +
-                "</relationships>";
+        String xml = "<relationships>" + "<relationship name=\"observations_has_station\" cardinality=\"n:1\">"
+                + "<source schema=\"public\" entity=\"observations_v\" kind=\"VIEW\">"
+                + "<key column=\"station_id\"/>"
+                + "</source>"
+                + "<target schema=\"public\" entity=\"stations\" kind=\"TABLE\">"
+                + "<key column=\"id\"/>"
+                + "</target>"
+                + "</relationship>"
+                + "<relationship name=\"station_parameters\" cardinality=\"1:n\">"
+                + "<source schema=\"public\" entity=\"stations\" kind=\"TABLE\">"
+                + "<key column=\"id\"/>"
+                + "</source>"
+                + "<target schema=\"public\" entity=\"parameters_v\" kind=\"VIEW\">"
+                + "<key column=\"station_id\"/>"
+                + "</target>"
+                + "</relationship>"
+                + "</relationships>";
         Relationships relationships = RelationshipsXmlParser.parse(xml);
         assertNotNull(relationships);
         assertEquals(2, relationships.getRelationships().size());
@@ -57,4 +56,3 @@ public class RelationshipsXmlParserTest {
         RelationshipsXmlParser.parse(xml);
     }
 }
-

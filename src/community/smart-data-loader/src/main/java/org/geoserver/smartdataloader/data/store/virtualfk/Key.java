@@ -15,4 +15,3 @@ public class Key {
         this.column = column;
     }
 }
-

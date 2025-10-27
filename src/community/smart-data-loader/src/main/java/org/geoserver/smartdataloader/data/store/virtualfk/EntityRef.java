@@ -45,4 +45,3 @@ public class EntityRef {
         this.key = key;
     }
 }
-

@@ -1,12 +1,14 @@
 package org.geoserver.smartdataloader.data.store.virtualfk;
 
-import org.w3c.dom.*;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.geoserver.smartdataloader.domain.entities.DomainRelationType;
+import org.w3c.dom.*;
 
 public class RelationshipsXmlParser {
+
     public static Relationships parse(String xml) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
@@ -20,8 +22,10 @@ public class RelationshipsXmlParser {
             String name = relElem.getAttribute("name");
             String cardinality = relElem.getAttribute("cardinality");
 
-            EntityRef source = parseEntityRef((Element) relElem.getElementsByTagName("source").item(0));
-            EntityRef target = parseEntityRef((Element) relElem.getElementsByTagName("target").item(0));
+            EntityRef source = parseEntityRef(
+                    (Element) relElem.getElementsByTagName("source").item(0));
+            EntityRef target = parseEntityRef(
+                    (Element) relElem.getElementsByTagName("target").item(0));
 
             Relationship relationship = new Relationship(name, cardinality, source, target);
             relationships.addRelationship(relationship);
@@ -38,5 +42,20 @@ public class RelationshipsXmlParser {
         Key key = new Key(column);
         return new EntityRef(schema, entity, kind, key);
     }
-}
 
+    /** Resolves cardinality string to DomainRelationType enum. */
+    public static DomainRelationType resolveCardinality(String cardinality) {
+        switch (cardinality.toLowerCase()) {
+            case "n:1":
+                return DomainRelationType.MANYONE;
+            case "1:n":
+                return DomainRelationType.ONEMANY;
+            case "1:1":
+                return DomainRelationType.ONEONE;
+            case "n:n":
+                return DomainRelationType.MANYMANY;
+            default:
+                throw new IllegalArgumentException("Unknown cardinality: " + cardinality);
+        }
+    }
+}

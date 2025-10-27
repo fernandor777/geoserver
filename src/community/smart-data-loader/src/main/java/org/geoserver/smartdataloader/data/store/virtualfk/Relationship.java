@@ -45,4 +45,3 @@ public class Relationship {
         this.target = target;
     }
 }
-

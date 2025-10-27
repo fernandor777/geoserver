@@ -9,16 +9,16 @@ import org.geoserver.smartdataloader.domain.entities.DomainRelationType;
 
 /**
  * Metadata representation for a virtual relation between entities.
- * <p>
- * A virtual relation extends {@link RelationMetadata} with a name and an optional
- * expression that can be used to describe or compute the virtual mapping.
+ *
+ * <p>A virtual relation extends {@link RelationMetadata} with a name and an optional expression that can be used to
+ * describe or compute the virtual mapping.
  */
 public class VirtualRelationMetadata extends RelationMetadata {
 
     private final String name;
 
-    public VirtualRelationMetadata(DomainRelationType type, AttributeMetadata source, AttributeMetadata destination,
-            String name) {
+    public VirtualRelationMetadata(
+            DomainRelationType type, AttributeMetadata source, AttributeMetadata destination, String name) {
         super(type, source, destination);
         this.name = name;
     }
@@ -53,4 +53,3 @@ public class VirtualRelationMetadata extends RelationMetadata {
                 + '}';
     }
 }
-

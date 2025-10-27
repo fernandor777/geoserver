@@ -96,6 +96,8 @@ public class SmartDataLoaderDataAccessFactory implements DataAccessFactory {
             false,
             "",
             Collections.emptyMap());
+    public static final Param VIRTUAL_RELATIONSHIPS =
+            new Param("virtual-relationships", String.class, "Virtual relationships", false);
 
     @Override
     public String getDisplayName() {
@@ -148,6 +150,7 @@ public class SmartDataLoaderDataAccessFactory implements DataAccessFactory {
         parameters.put(DOMAIN_MODEL_EXCLUSIONS.key, DOMAIN_MODEL_EXCLUSIONS);
         parameters.put(SMART_OVERRIDE_PARAM.key, SMART_OVERRIDE_PARAM);
         parameters.put(ENTITIES_PREFIX.key, ENTITIES_PREFIX);
+        parameters.put(VIRTUAL_RELATIONSHIPS.key, VIRTUAL_RELATIONSHIPS);
     }
 
     private String getFilenamePrefix(Map<String, Serializable> params) throws IOException {

@@ -9,9 +9,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
-
 import org.geoserver.smartdataloader.data.store.virtualfk.Relationship;
 import org.geoserver.smartdataloader.data.store.virtualfk.Relationships;
+import org.geoserver.smartdataloader.data.store.virtualfk.RelationshipsXmlParser;
 import org.geoserver.smartdataloader.domain.entities.DomainRelationType;
 import org.geoserver.smartdataloader.metadata.AttributeMetadata;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
@@ -29,9 +29,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
         this(DefaultJdbcHelper.getInstance(), relationships);
     }
 
-    /**
-     * Allow injecting a different delegate (useful for testing or custom implementations).
-     */
+    /** Allow injecting a different delegate (useful for testing or custom implementations). */
     public VirtualFkJdbcHelper(JdbcHelper delegate, Relationships relationships) {
         this.delegate = (delegate != null) ? delegate : DefaultJdbcHelper.getInstance();
         this.relationships = relationships;
@@ -76,29 +74,43 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
             throws Exception {
         List<RelationMetadata> relations = new ArrayList<>();
         for (Relationship relationship : relationships.getRelationships()) {
-            if (relationship.getSource().getEntity().equals(table.getName()) &&
-                relationship.getSource().getSchema().equals(table.getSchema())) {
+            if (relationship.getSource().getEntity().equals(table.getName())
+                    && relationship.getSource().getSchema().equals(table.getSchema())) {
                 String sourceColumn = relationship.getSource().getKey().getColumn();
                 String targetTable = relationship.getTarget().getEntity();
                 String targetSchema = relationship.getTarget().getSchema();
                 String targetColumn = relationship.getTarget().getKey().getColumn();
-                DomainRelationType cardinality = DomainRelationType.MANYONE;
-                RelationMetadata virtualRelation = new VirtualRelationMetadata(
-                        table.getName(),
-                        sourceColumn,
-                        targetTable,
-                        targetColumn,
-                        cardinality,
-                        relationship.getName(),
-                        relationship.getDescription(),
-                        table.getSchema(),
-                        targetSchema
-                );
+                // resolve the cardinality
+                DomainRelationType cardinality =
+                        RelationshipsXmlParser.resolveCardinality(relationship.getCardinality());
+                // find source attribute metadata
+                AttributeMetadata sourceAttr = table.getAttributes().stream()
+                        .filter(attr -> attr.getName().equals(sourceColumn))
+                        .findFirst()
+                        .orElse(null);
+                // find target table metadata
+                List<JdbcTableMetadata> targetSchemaTables = delegate.getSchemaTables(metaData, targetSchema);
+                JdbcTableMetadata targetTableMetadata = targetSchemaTables.stream()
+                        .filter(t -> t.getName().equals(targetTable))
+                        .findFirst()
+                        .orElse(null);
+                if (targetTableMetadata == null) {
+                    continue; // skip if target table not found
+                }
+                AttributeMetadata targetAttr = targetTableMetadata.getAttributes().stream()
+                        .filter(attr -> attr.getName().equals(targetColumn))
+                        .findFirst()
+                        .orElse(null);
+                if (sourceAttr == null || targetAttr == null) {
+                    continue; // skip if attributes are not found
+                }
+                RelationMetadata virtualRelation =
+                        new VirtualRelationMetadata(cardinality, sourceAttr, targetAttr, relationship.getName());
                 relations.add(virtualRelation);
             }
         }
-
-        return delegate.getRelationsByTable(metaData, table);
+        relations.addAll(delegate.getRelationsByTable(metaData, table));
+        return relations;
     }
 
     @Override
@@ -112,11 +124,10 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
             return false;
         }
         // check if column matches any source in relationships
-        return relationships.getRelationships().stream().anyMatch(rel ->
-            rel.getSource().getEntity().equals(table.getName()) &&
-            rel.getSource().getKey().getColumn().equals(columnName) &&
-            rel.getSource().getSchema().equals(table.getSchema())
-        );
+        return relationships.getRelationships().stream()
+                .anyMatch(rel -> rel.getSource().getEntity().equals(table.getName())
+                        && rel.getSource().getKey().getColumn().equals(columnName)
+                        && rel.getSource().getSchema().equals(table.getSchema()));
     }
 
     @Override
@@ -132,14 +143,15 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     }
 
     @Override
-    public SortedMap<String, Collection<String>> getIndexColumns(DatabaseMetaData metaData,
-            List<JdbcTableMetadata> tables, boolean unique, boolean approximate) throws Exception {
+    public SortedMap<String, Collection<String>> getIndexColumns(
+            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, boolean unique, boolean approximate)
+            throws Exception {
         return delegate.getIndexColumns(metaData, tables, unique, approximate);
     }
 
     @Override
-    public SortedMap<String, Collection<String>> getIndexesByTable(DatabaseMetaData metaData,
-            JdbcTableMetadata table, boolean unique, boolean approximate) throws Exception {
+    public SortedMap<String, Collection<String>> getIndexesByTable(
+            DatabaseMetaData metaData, JdbcTableMetadata table, boolean unique, boolean approximate) throws Exception {
         return delegate.getIndexesByTable(metaData, table, unique, approximate);
     }
 
@@ -162,14 +174,16 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     }
 
     @Override
-    public JdbcPrimaryKeyConstraintMetadata isPrimaryKey(JdbcTableMetadata table,
+    public JdbcPrimaryKeyConstraintMetadata isPrimaryKey(
+            JdbcTableMetadata table,
             Collection<JdbcForeignKeyColumnMetadata> fkColumnsList,
             SortedMap<EntityMetadata, JdbcPrimaryKeyConstraintMetadata> pkMap) {
         return delegate.isPrimaryKey(table, fkColumnsList, pkMap);
     }
 
     @Override
-    public String isUniqueIndex(JdbcTableMetadata table,
+    public String isUniqueIndex(
+            JdbcTableMetadata table,
             Collection<JdbcForeignKeyColumnMetadata> fkColumnsList,
             SortedMap<String, Collection<String>> uniqueIndexMap) {
         return delegate.isUniqueIndex(table, fkColumnsList, uniqueIndexMap);
@@ -181,4 +195,3 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
         return delegate.getInversedForeignKeysByTable(metaData, table);
     }
 }
-
