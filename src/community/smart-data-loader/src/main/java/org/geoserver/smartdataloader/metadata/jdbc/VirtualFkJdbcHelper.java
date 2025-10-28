@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.SortedMap;
+import org.geoserver.smartdataloader.data.store.virtualfk.EntityRef;
 import org.geoserver.smartdataloader.data.store.virtualfk.Relationship;
 import org.geoserver.smartdataloader.data.store.virtualfk.Relationships;
 import org.geoserver.smartdataloader.data.store.virtualfk.RelationshipsXmlParser;
@@ -38,8 +39,13 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
 
     @Override
     public List<JdbcTableMetadata> getSchemaTables(DatabaseMetaData metaData, String schema) throws Exception {
-        List<JdbcTableMetadata> tables = delegate.getSchemaTables(metaData, schema);
+        List<JdbcTableMetadata> delegateTables = delegate.getSchemaTables(metaData, schema);
+        List<JdbcTableMetadata> tables = (delegateTables != null) ? new ArrayList<>(delegateTables) : new ArrayList<>();
         applyVirtualHelper(tables);
+        for (Relationship relationship : relationships.getRelationships()) {
+            includeRelationshipEndpoint(metaData, tables, relationship.getSource());
+            includeRelationshipEndpoint(metaData, tables, relationship.getTarget());
+        }
         return tables;
     }
 
@@ -212,6 +218,23 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
             if (table != null) {
                 table.setJdbcHelper(this);
             }
+        }
+    }
+
+    private void includeRelationshipEndpoint(
+            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, EntityRef endpoint) throws Exception {
+        if (endpoint == null || endpoint.getEntity() == null) {
+            return;
+        }
+        boolean alreadyPresent = tables.stream().anyMatch(t -> Objects.equals(t.getName(), endpoint.getEntity())
+                && Objects.equals(t.getSchema(), endpoint.getSchema()));
+        if (alreadyPresent) {
+            return;
+        }
+        JdbcTableMetadata tableMetadata =
+                findTableMetadata(metaData, endpoint.getSchema(), endpoint.getEntity());
+        if (tableMetadata != null) {
+            tables.add(tableMetadata);
         }
     }
 
