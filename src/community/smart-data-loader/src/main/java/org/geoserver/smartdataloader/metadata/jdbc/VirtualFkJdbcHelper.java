@@ -8,6 +8,7 @@ import java.sql.DatabaseMetaData;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.SortedMap;
 import org.geoserver.smartdataloader.data.store.virtualfk.Relationship;
 import org.geoserver.smartdataloader.data.store.virtualfk.Relationships;
@@ -81,40 +82,43 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
         }
         List<RelationMetadata> relations = new ArrayList<>();
         for (Relationship relationship : relationships.getRelationships()) {
-            if (relationship.getSource().getEntity().equals(table.getName())
-                    && relationship.getSource().getSchema().equals(table.getSchema())) {
-                String sourceColumn = relationship.getSource().getKey().getColumn();
-                String targetTable = relationship.getTarget().getEntity();
-                String targetSchema = relationship.getTarget().getSchema();
-                String targetColumn = relationship.getTarget().getKey().getColumn();
-                // resolve the cardinality
-                DomainRelationType cardinality =
-                        RelationshipsXmlParser.resolveCardinality(relationship.getCardinality());
-                // find source attribute metadata
-                AttributeMetadata sourceAttr = table.getAttributes().stream()
-                        .filter(attr -> attr.getName().equals(sourceColumn))
-                        .findFirst()
-                        .orElse(null);
-                // find target table metadata
-                List<JdbcTableMetadata> targetSchemaTables = delegate.getSchemaTables(metaData, targetSchema);
-                applyVirtualHelper(targetSchemaTables);
-                JdbcTableMetadata targetTableMetadata = targetSchemaTables.stream()
-                        .filter(t -> t.getName().equals(targetTable))
-                        .findFirst()
-                        .orElse(null);
-                if (targetTableMetadata == null) {
-                    continue; // skip if target table not found
+            DomainRelationType cardinality = RelationshipsXmlParser.resolveCardinality(relationship.getCardinality());
+            boolean matchesSource = Objects.equals(relationship.getSource().getEntity(), table.getName())
+                    && Objects.equals(relationship.getSource().getSchema(), table.getSchema());
+            boolean matchesTarget = Objects.equals(relationship.getTarget().getEntity(), table.getName())
+                    && Objects.equals(relationship.getTarget().getSchema(), table.getSchema());
+
+            if (matchesSource) {
+                AttributeMetadata sourceAttr =
+                        findAttribute(table, relationship.getSource().getKey().getColumn());
+                JdbcTableMetadata targetTableMetadata = findTableMetadata(
+                        metaData,
+                        relationship.getTarget().getSchema(),
+                        relationship.getTarget().getEntity());
+                AttributeMetadata targetAttr = findAttribute(
+                        targetTableMetadata, relationship.getTarget().getKey().getColumn());
+                if (sourceAttr != null && targetAttr != null) {
+                    RelationMetadata virtualRelation =
+                            new VirtualRelationMetadata(cardinality, sourceAttr, targetAttr, relationship.getName());
+                    relations.add(virtualRelation);
                 }
-                AttributeMetadata targetAttr = targetTableMetadata.getAttributes().stream()
-                        .filter(attr -> attr.getName().equals(targetColumn))
-                        .findFirst()
-                        .orElse(null);
-                if (sourceAttr == null || targetAttr == null) {
-                    continue; // skip if attributes are not found
+            }
+
+            if (matchesTarget) {
+                AttributeMetadata targetAttr =
+                        findAttribute(table, relationship.getTarget().getKey().getColumn());
+                JdbcTableMetadata sourceTableMetadata = findTableMetadata(
+                        metaData,
+                        relationship.getSource().getSchema(),
+                        relationship.getSource().getEntity());
+                AttributeMetadata sourceAttr = findAttribute(
+                        sourceTableMetadata, relationship.getSource().getKey().getColumn());
+                if (targetAttr != null && sourceAttr != null) {
+                    DomainRelationType inverseCardinality = invertCardinality(cardinality);
+                    RelationMetadata inverseRelation = new VirtualRelationMetadata(
+                            inverseCardinality, targetAttr, sourceAttr, relationship.getName());
+                    relations.add(inverseRelation);
                 }
-                RelationMetadata virtualRelation =
-                        new VirtualRelationMetadata(cardinality, sourceAttr, targetAttr, relationship.getName());
-                relations.add(virtualRelation);
             }
         }
         relations.addAll(delegate.getRelationsByTable(metaData, table));
@@ -208,6 +212,55 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
             if (table != null) {
                 table.setJdbcHelper(this);
             }
+        }
+    }
+
+    private JdbcTableMetadata findTableMetadata(DatabaseMetaData metaData, String schema, String tableName)
+            throws Exception {
+        if (tableName == null) {
+            return null;
+        }
+        List<JdbcTableMetadata> schemaTables = delegate.getSchemaTables(metaData, schema);
+        applyVirtualHelper(schemaTables);
+        if (schemaTables == null) {
+            return null;
+        }
+        for (JdbcTableMetadata table : schemaTables) {
+            if (table != null && Objects.equals(table.getName(), tableName)) {
+                return table;
+            }
+        }
+        return null;
+    }
+
+    private AttributeMetadata findAttribute(JdbcTableMetadata tableMetadata, String columnName) {
+        if (tableMetadata == null || columnName == null) {
+            return null;
+        }
+        if (tableMetadata.getAttributes() == null) {
+            return null;
+        }
+        return tableMetadata.getAttributes().stream()
+                .filter(attr -> Objects.equals(attr.getName(), columnName))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private DomainRelationType invertCardinality(DomainRelationType cardinality) {
+        if (cardinality == null) {
+            return null;
+        }
+        switch (cardinality) {
+            case ONEMANY:
+                return DomainRelationType.MANYONE;
+            case MANYONE:
+                return DomainRelationType.ONEMANY;
+            case ONEONE:
+                return DomainRelationType.ONEONE;
+            case MANYMANY:
+                return DomainRelationType.MANYMANY;
+            default:
+                return cardinality;
         }
     }
 }
