@@ -226,13 +226,13 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
         if (endpoint == null || endpoint.getEntity() == null) {
             return;
         }
-        boolean alreadyPresent = tables.stream().anyMatch(t -> Objects.equals(t.getName(), endpoint.getEntity())
-                && Objects.equals(t.getSchema(), endpoint.getSchema()));
+        boolean alreadyPresent = tables.stream()
+                .anyMatch(t -> Objects.equals(t.getName(), endpoint.getEntity())
+                        && Objects.equals(t.getSchema(), endpoint.getSchema()));
         if (alreadyPresent) {
             return;
         }
-        JdbcTableMetadata tableMetadata =
-                findTableMetadata(metaData, endpoint.getSchema(), endpoint.getEntity());
+        JdbcTableMetadata tableMetadata = findTableMetadata(metaData, endpoint.getSchema(), endpoint.getEntity());
         if (tableMetadata != null) {
             tables.add(tableMetadata);
         }

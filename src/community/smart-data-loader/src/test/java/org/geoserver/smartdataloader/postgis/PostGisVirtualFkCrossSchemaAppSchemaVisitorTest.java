@@ -28,9 +28,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-/**
- * Validates generation of App-Schema mappings when virtual relationships target a view located in another schema.
- */
+/** Validates generation of App-Schema mappings when virtual relationships target a view located in another schema. */
 public class PostGisVirtualFkCrossSchemaAppSchemaVisitorTest extends AbstractJDBCSmartDataLoaderTestSupport {
 
     private static final String VIRTUAL_RELATIONSHIPS_XML = "<relationships>"
@@ -87,8 +85,8 @@ public class PostGisVirtualFkCrossSchemaAppSchemaVisitorTest extends AbstractJDB
             DomainModelBuilder builder = new DomainModelBuilder(dsm, config);
             DomainModel model = builder.buildDomainModel();
 
-            AppSchemaVisitor visitor =
-                    new AppSchemaVisitor(NAMESPACE_PREFIX, TARGET_NAMESPACE, "meteo-stations-virtual-cross-schema-gml.xsd");
+            AppSchemaVisitor visitor = new AppSchemaVisitor(
+                    NAMESPACE_PREFIX, TARGET_NAMESPACE, "meteo-stations-virtual-cross-schema-gml.xsd");
             model.accept(visitor);
             Document doc = visitor.getDocument();
 

@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import org.geoserver.smartdataloader.domain.entities.DomainRelationType;
@@ -57,10 +58,16 @@ public class DefaultJdbcHelper implements JdbcHelper {
 
     @Override
     public List<JdbcTableMetadata> getSchemaTables(DatabaseMetaData metaData, String schema) throws Exception {
-        try (ResultSet tables =
+        List<JdbcTableMetadata> tables = new ArrayList<>();
+        try (ResultSet tablesRs =
                 metaData.getTables(null, jdbcDataStore.escapeNamePattern(metaData, schema), "%", null)) {
-            return getListOfTablesFromResultSet(metaData, tables);
+            List<JdbcTableMetadata> baseTables = getListOfTablesFromResultSet(metaData, tablesRs);
+            if (baseTables != null) {
+                tables.addAll(baseTables);
+            }
         }
+        discoverCrossSchemaTables(metaData, tables);
+        return tables;
     }
 
     @Override
@@ -68,6 +75,69 @@ public class DefaultJdbcHelper implements JdbcHelper {
         try (ResultSet tables = metaData.getTables(null, null, "%", null)) {
             return getListOfTablesFromResultSet(metaData, tables);
         }
+    }
+
+    private void discoverCrossSchemaTables(DatabaseMetaData metaData, List<JdbcTableMetadata> tables) throws Exception {
+        boolean addedTables;
+        do {
+            addedTables = false;
+            List<JdbcTableMetadata> snapshot = new ArrayList<>(tables);
+            for (JdbcTableMetadata table : snapshot) {
+                addedTables |= addImportedKeyTables(metaData, tables, table);
+                addedTables |= addExportedKeyTables(metaData, tables, table);
+            }
+        } while (addedTables);
+    }
+
+    private boolean addImportedKeyTables(
+            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, JdbcTableMetadata table) throws Exception {
+        boolean added = false;
+        try (ResultSet rs = metaData.getImportedKeys(table.getCatalog(), table.getSchema(), table.getName())) {
+            while (rs.next()) {
+                added |= addTableIfMissing(
+                        metaData,
+                        tables,
+                        rs.getString("PKTABLE_CAT"),
+                        rs.getString("PKTABLE_SCHEM"),
+                        rs.getString("PKTABLE_NAME"));
+            }
+        }
+        return added;
+    }
+
+    private boolean addExportedKeyTables(
+            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, JdbcTableMetadata table) throws Exception {
+        boolean added = false;
+        try (ResultSet rs = metaData.getExportedKeys(table.getCatalog(), table.getSchema(), table.getName())) {
+            while (rs.next()) {
+                added |= addTableIfMissing(
+                        metaData,
+                        tables,
+                        rs.getString("FKTABLE_CAT"),
+                        rs.getString("FKTABLE_SCHEM"),
+                        rs.getString("FKTABLE_NAME"));
+            }
+        }
+        return added;
+    }
+
+    private boolean addTableIfMissing(
+            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, String catalog, String schema, String tableName)
+            throws Exception {
+        if (tableName == null) {
+            return false;
+        }
+        for (JdbcTableMetadata existing : tables) {
+            if (Objects.equals(existing.getName(), tableName)
+                    && Objects.equals(existing.getSchema(), schema)
+                    && Objects.equals(existing.getCatalog(), catalog)) {
+                return false;
+            }
+        }
+        JdbcTableMetadata relatedTable =
+                new JdbcTableMetadata(metaData.getConnection(), catalog, schema, tableName, this);
+        tables.add(relatedTable);
+        return true;
     }
 
     @Override
