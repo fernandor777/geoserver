@@ -23,6 +23,7 @@ import org.apache.wicket.markup.html.panel.FeedbackPanel;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.CompoundPropertyModel;
 import org.apache.wicket.model.IModel;
+import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.validation.validator.StringValidator;
 import org.geoserver.smartdataloader.data.SmartDataLoaderDataAccessFactory;
@@ -48,7 +49,7 @@ public class VirtualRelationshipsPanel extends Panel {
 
     private final IModel<Map<String, Serializable>> connectionParametersModel;
 
-    private final List<VirtualRelationshipBean> relationships = new ArrayList<>();
+    private final LoadableDetachableModel<List<VirtualRelationshipBean>> relationshipsModel;
 
     private WebMarkupContainer tableContainer;
     private WebMarkupContainer emptyContainer;
@@ -60,12 +61,17 @@ public class VirtualRelationshipsPanel extends Panel {
         super(id);
         this.connectionParametersModel = connectionParametersModel;
         setOutputMarkupId(true);
+        this.relationshipsModel = new LoadableDetachableModel<List<VirtualRelationshipBean>>() {
+            @Override
+            protected List<VirtualRelationshipBean> load() {
+                return loadRelationships();
+            }
+        };
     }
 
     @Override
     protected void onInitialize() {
         super.onInitialize();
-        relationships.addAll(loadRelationships());
 
         feedback = new FeedbackPanel("feedback");
         feedback.setOutputMarkupId(true);
@@ -77,7 +83,7 @@ public class VirtualRelationshipsPanel extends Panel {
         tableContainer = new WebMarkupContainer("relationshipsTable");
         tableContainer.setOutputMarkupId(true);
         tableContainer.setOutputMarkupPlaceholderTag(true);
-        relationshipsView = new ListView<VirtualRelationshipBean>("relationships", relationships) {
+        relationshipsView = new ListView<VirtualRelationshipBean>("relationships", relationshipsModel) {
             @Override
             protected void populateItem(ListItem<VirtualRelationshipBean> item) {
                 VirtualRelationshipBean bean = item.getModelObject();
@@ -89,6 +95,7 @@ public class VirtualRelationshipsPanel extends Panel {
                 item.add(createRemoveLink("remove", item));
             }
         };
+        relationshipsView.setOutputMarkupId(true);
         relationshipsView.setReuseItems(true);
         tableContainer.add(relationshipsView);
         add(tableContainer);
@@ -140,10 +147,7 @@ public class VirtualRelationshipsPanel extends Panel {
         return new AjaxLink<Void>(id) {
             @Override
             public void onClick(AjaxRequestTarget target) {
-                relationships.remove(item.getIndex());
-                relationshipsView.modelChanged();
-                persistRelationships();
-                updateVisibility();
+                removeRelationship(item.getIndex());
                 target.add(tableContainer, emptyContainer, feedback);
             }
         };
@@ -155,7 +159,11 @@ public class VirtualRelationshipsPanel extends Panel {
     }
 
     private void openForEdit(AjaxRequestTarget target, int index) {
-        VirtualRelationshipBean bean = relationships.get(index).copy();
+        List<VirtualRelationshipBean> current = relationshipsModel.getObject();
+        if (current == null || index < 0 || index >= current.size()) {
+            return;
+        }
+        VirtualRelationshipBean bean = current.get(index).copy();
         openModal(target, bean, index, true);
     }
 
@@ -168,18 +176,29 @@ public class VirtualRelationshipsPanel extends Panel {
     }
 
     private void applyRelationship(VirtualRelationshipBean bean, int index) {
-        if (index >= 0 && index < relationships.size()) {
-            relationships.set(index, bean);
-        } else {
-            relationships.add(bean);
+        List<VirtualRelationshipBean> updated = new ArrayList<>();
+        List<VirtualRelationshipBean> current = relationshipsModel.getObject();
+        if (current != null) {
+            updated.addAll(current);
         }
+        if (index >= 0 && index < updated.size()) {
+            updated.set(index, bean);
+        } else {
+            updated.add(bean);
+        }
+        persistRelationships(updated);
+        relationshipsModel.setObject(updated);
         relationshipsView.modelChanged();
-        persistRelationships();
-        updateVisibility();
+        updateVisibility(updated);
     }
 
     private void updateVisibility() {
-        boolean hasRelationships = !relationships.isEmpty();
+        List<VirtualRelationshipBean> current = relationshipsModel.getObject();
+        updateVisibility(current);
+    }
+
+    private void updateVisibility(List<VirtualRelationshipBean> relationships) {
+        boolean hasRelationships = relationships != null && !relationships.isEmpty();
         tableContainer.setVisible(hasRelationships);
         emptyContainer.setVisible(!hasRelationships);
     }
@@ -211,10 +230,28 @@ public class VirtualRelationshipsPanel extends Panel {
         return beans;
     }
 
-    private void persistRelationships() {
+    private void removeRelationship(int index) {
+        List<VirtualRelationshipBean> updated = new ArrayList<>();
+        List<VirtualRelationshipBean> current = relationshipsModel.getObject();
+        if (current != null) {
+            updated.addAll(current);
+        }
+        if (index < 0 || index >= updated.size()) {
+            return;
+        }
+        updated.remove(index);
+        persistRelationships(updated);
+        relationshipsModel.setObject(updated);
+        relationshipsView.modelChanged();
+        updateVisibility(updated);
+    }
+
+    private void persistRelationships(List<VirtualRelationshipBean> relationships) {
         Relationships rels = new Relationships();
-        for (VirtualRelationshipBean bean : relationships) {
-            rels.addRelationship(bean.toRelationship());
+        if (relationships != null) {
+            for (VirtualRelationshipBean bean : relationships) {
+                rels.addRelationship(bean.toRelationship());
+            }
         }
         String xml = RelationshipsXmlWriter.toXml(rels);
         Map<String, Serializable> parameters = connectionParametersModel.getObject();
