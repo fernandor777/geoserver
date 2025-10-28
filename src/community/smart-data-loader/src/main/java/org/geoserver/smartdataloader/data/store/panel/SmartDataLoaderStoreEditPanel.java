@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
@@ -112,6 +113,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         buildDomainModelTreePanel(model);
         // build exclusions panel (it's hidden)
         buildHiddenParametersPanel(model);
+        buildVirtualRelationshipsPanel(model);
         buildOverridesView();
     }
 
@@ -480,6 +482,14 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             }
         });
         add(entitiesPrefixPanel);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void buildVirtualRelationshipsPanel(final IModel model) {
+        IModel<Map<String, Serializable>> paramsModel = new PropertyModel(model, "connectionParameters");
+        VirtualRelationshipsPanel panel = new VirtualRelationshipsPanel("virtualRelationships", paramsModel);
+        panel.setOutputMarkupId(true);
+        add(panel);
     }
 
     public static class DataStoreSummmary implements Serializable {
