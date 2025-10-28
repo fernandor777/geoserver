@@ -96,7 +96,6 @@ public class VirtualRelationshipsPanel extends Panel {
             }
         };
         relationshipsView.setOutputMarkupId(true);
-        relationshipsView.setReuseItems(true);
         tableContainer.add(relationshipsView);
         add(tableContainer);
 
@@ -187,9 +186,12 @@ public class VirtualRelationshipsPanel extends Panel {
             updated.add(bean);
         }
         persistRelationships(updated);
-        relationshipsModel.setObject(updated);
+        relationshipsModel.setObject(null);
+        relationshipsModel.detach();
+        List<VirtualRelationshipBean> refreshed = relationshipsModel.getObject();
+        relationshipsView.removeAll();
         relationshipsView.modelChanged();
-        updateVisibility(updated);
+        updateVisibility(refreshed);
     }
 
     private void updateVisibility() {
@@ -241,9 +243,12 @@ public class VirtualRelationshipsPanel extends Panel {
         }
         updated.remove(index);
         persistRelationships(updated);
-        relationshipsModel.setObject(updated);
+        relationshipsModel.setObject(null);
+        relationshipsModel.detach();
+        List<VirtualRelationshipBean> refreshed = relationshipsModel.getObject();
+        relationshipsView.removeAll();
         relationshipsView.modelChanged();
-        updateVisibility(updated);
+        updateVisibility(refreshed);
     }
 
     private void persistRelationships(List<VirtualRelationshipBean> relationships) {
