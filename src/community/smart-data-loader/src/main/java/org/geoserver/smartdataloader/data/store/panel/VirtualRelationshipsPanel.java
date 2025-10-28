@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.ajax.markup.html.form.AjaxButton;
+import org.apache.wicket.extensions.ajax.markup.html.modal.ModalWindow;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.DropDownChoice;
@@ -33,7 +34,7 @@ import org.geoserver.smartdataloader.data.store.virtualfk.RelationshipsXmlWriter
 import org.geotools.util.logging.Logging;
 
 /**
- * Panel that allows viewing and editing of the virtual foreign key relationships configured for the Smart Data Loader
+ * Panel that allows viewing and editing the virtual foreign key relationships configured for the Smart Data Loader
  * store.
  */
 public class VirtualRelationshipsPanel extends Panel {
@@ -52,10 +53,7 @@ public class VirtualRelationshipsPanel extends Panel {
     private WebMarkupContainer emptyContainer;
     private ListView<VirtualRelationshipBean> relationshipsView;
     private FeedbackPanel feedback;
-    private Form<VirtualRelationshipBean> form;
-    private CompoundPropertyModel<VirtualRelationshipBean> formModel;
-    private Model<String> formLegendModel;
-    private int editingIndex = -1;
+    private ModalWindow relationshipModal;
 
     public VirtualRelationshipsPanel(String id, IModel<Map<String, Serializable>> connectionParametersModel) {
         super(id);
@@ -71,6 +69,9 @@ public class VirtualRelationshipsPanel extends Panel {
         feedback = new FeedbackPanel("feedback");
         feedback.setOutputMarkupId(true);
         add(feedback);
+
+        WebMarkupContainer toolbar = buildToolbar();
+        add(toolbar);
 
         tableContainer = new WebMarkupContainer("relationshipsTable");
         tableContainer.setOutputMarkupId(true);
@@ -95,39 +96,33 @@ public class VirtualRelationshipsPanel extends Panel {
         emptyContainer.setOutputMarkupPlaceholderTag(true);
         add(emptyContainer);
 
-        formModel = new CompoundPropertyModel<>(createDefaultBean());
-        formLegendModel = Model.of(getAddLegend());
-        form = new Form<>("relationshipForm", formModel);
-        form.setOutputMarkupId(true);
+        relationshipModal = new ModalWindow("relationshipModal");
+        relationshipModal.setOutputMarkupId(true);
+        relationshipModal.setResizable(false);
+        relationshipModal.setAutoSize(true);
+        add(relationshipModal);
 
-        Label legend = new Label("formLegend", formLegendModel);
-        legend.setOutputMarkupId(true);
-        form.add(legend);
-
-        form.add(createTextField("name", true));
-        form.add(createTextField("sourceSchema", true));
-        form.add(createTextField("sourceEntity", true));
-        form.add(createKindChoice("sourceKind"));
-        form.add(createTextField("sourceColumn", true));
-        form.add(createTextField("targetSchema", true));
-        form.add(createTextField("targetEntity", true));
-        form.add(createKindChoice("targetKind"));
-        form.add(createTextField("targetColumn", true));
-        form.add(createCardinalityChoice("cardinality"));
-
-        form.add(createSaveButton());
-        form.add(createCancelButton());
-
-        add(form);
         updateVisibility();
+    }
+
+    private WebMarkupContainer buildToolbar() {
+        WebMarkupContainer toolbar = new WebMarkupContainer("toolbar");
+        toolbar.setOutputMarkupId(true);
+        AjaxLink<Void> addLink = new AjaxLink<Void>("addLink") {
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                openForAdd(target);
+            }
+        };
+        toolbar.add(addLink);
+        return toolbar;
     }
 
     private AjaxLink<Void> createEditLink(String id, ListItem<VirtualRelationshipBean> item) {
         return new AjaxLink<Void>(id) {
             @Override
             public void onClick(AjaxRequestTarget target) {
-                startEdit(item.getIndex());
-                target.add(form, feedback);
+                openForEdit(target, item.getIndex());
             }
         };
     }
@@ -139,86 +134,39 @@ public class VirtualRelationshipsPanel extends Panel {
                 relationships.remove(item.getIndex());
                 relationshipsView.modelChanged();
                 persistRelationships();
-                resetForm();
                 updateVisibility();
-                target.add(tableContainer, emptyContainer, form, feedback);
+                target.add(tableContainer, emptyContainer, feedback);
             }
         };
     }
 
-    private AjaxButton createSaveButton() {
-        return new AjaxButton("save", form) {
-            @Override
-            protected void onSubmit(AjaxRequestTarget target) {
-                VirtualRelationshipBean bean = formModel.getObject().copy();
-                bean.normalize();
-                if (!bean.isValid()) {
-                    error(getString("VirtualRelationshipsPanel.validationError", null, "All fields must be provided."));
-                    target.add(feedback);
-                    return;
-                }
-                if (editingIndex >= 0) {
-                    relationships.set(editingIndex, bean);
-                } else {
-                    relationships.add(bean);
-                }
-                relationshipsView.modelChanged();
-                persistRelationships();
-                resetForm();
-                updateVisibility();
-                target.add(tableContainer, emptyContainer, form, feedback);
-            }
-
-            @Override
-            protected void onError(AjaxRequestTarget target) {
-                target.add(feedback);
-            }
-        };
+    private void openForAdd(AjaxRequestTarget target) {
+        VirtualRelationshipBean bean = createDefaultBean();
+        openModal(target, bean, -1, false);
     }
 
-    private AjaxButton createCancelButton() {
-        AjaxButton cancel = new AjaxButton("cancel") {
-            @Override
-            protected void onSubmit(AjaxRequestTarget target) {
-                resetForm();
-                target.add(form, feedback);
-            }
-        };
-        cancel.setDefaultFormProcessing(false);
-        return cancel;
+    private void openForEdit(AjaxRequestTarget target, int index) {
+        VirtualRelationshipBean bean = relationships.get(index).copy();
+        openModal(target, bean, index, true);
     }
 
-    private TextField<String> createTextField(String id, boolean required) {
-        TextField<String> field = new TextField<>(id);
-        field.setRequired(required);
-        field.add(StringValidator.maximumLength(256));
-        return field;
+    private void openModal(AjaxRequestTarget target, VirtualRelationshipBean bean, int index, boolean editMode) {
+        relationshipModal.setTitle(Model.of(editMode ? getEditLegend() : getAddLegend()));
+        RelationshipFormPanel panel =
+                new RelationshipFormPanel(relationshipModal.getContentId(), bean, index, editMode);
+        relationshipModal.setContent(panel);
+        relationshipModal.show(target);
     }
 
-    private DropDownChoice<String> createKindChoice(String id) {
-        DropDownChoice<String> choice = new DropDownChoice<>(id, ENTITY_KINDS);
-        choice.setNullValid(false);
-        choice.setRequired(true);
-        return choice;
-    }
-
-    private DropDownChoice<String> createCardinalityChoice(String id) {
-        DropDownChoice<String> choice = new DropDownChoice<>(id, CARDINALITIES);
-        choice.setNullValid(false);
-        choice.setRequired(true);
-        return choice;
-    }
-
-    private void startEdit(int index) {
-        editingIndex = index;
-        formModel.setObject(relationships.get(index).copy());
-        formLegendModel.setObject(getEditLegend());
-    }
-
-    private void resetForm() {
-        editingIndex = -1;
-        formModel.setObject(createDefaultBean());
-        formLegendModel.setObject(getAddLegend());
+    private void applyRelationship(VirtualRelationshipBean bean, int index) {
+        if (index >= 0 && index < relationships.size()) {
+            relationships.set(index, bean);
+        } else {
+            relationships.add(bean);
+        }
+        relationshipsView.modelChanged();
+        persistRelationships();
+        updateVisibility();
     }
 
     private void updateVisibility() {
@@ -238,8 +186,8 @@ public class VirtualRelationshipsPanel extends Panel {
             String xml = ((String) value).trim();
             if (!xml.isEmpty()) {
                 try {
-                    Relationships relationships = RelationshipsXmlParser.parse(xml);
-                    for (Relationship relationship : relationships.getRelationships()) {
+                    Relationships rels = RelationshipsXmlParser.parse(xml);
+                    for (Relationship relationship : rels.getRelationships()) {
                         beans.add(VirtualRelationshipBean.from(relationship));
                     }
                 } catch (Exception e) {
@@ -300,6 +248,94 @@ public class VirtualRelationshipsPanel extends Panel {
 
     private String getEditLegend() {
         return getString("VirtualRelationshipsPanel.editLegend", null, "Edit virtual relationship");
+    }
+
+    private class RelationshipFormPanel extends Panel {
+
+        private final CompoundPropertyModel<VirtualRelationshipBean> formModel;
+        private final FeedbackPanel modalFeedback;
+        private final int relationshipIndex;
+
+        RelationshipFormPanel(String id, VirtualRelationshipBean bean, int relationshipIndex, boolean editMode) {
+            super(id);
+            setOutputMarkupId(true);
+            this.relationshipIndex = relationshipIndex;
+            this.formModel = new CompoundPropertyModel<>(bean);
+
+            Form<VirtualRelationshipBean> form = new Form<>("form", formModel);
+            form.setOutputMarkupId(true);
+            add(form);
+
+            form.add(new Label("legend", Model.of(editMode ? getEditLegend() : getAddLegend())));
+
+            modalFeedback = new FeedbackPanel("feedback");
+            modalFeedback.setOutputMarkupId(true);
+            form.add(modalFeedback);
+
+            form.add(createTextField("name"));
+            form.add(createTextField("sourceSchema"));
+            form.add(createTextField("sourceEntity"));
+            form.add(createKindChoice("sourceKind"));
+            form.add(createTextField("sourceColumn"));
+            form.add(createTextField("targetSchema"));
+            form.add(createTextField("targetEntity"));
+            form.add(createKindChoice("targetKind"));
+            form.add(createTextField("targetColumn"));
+            form.add(createCardinalityChoice("cardinality"));
+
+            AjaxButton save = new AjaxButton("save", form) {
+                @Override
+                protected void onSubmit(AjaxRequestTarget target) {
+                    VirtualRelationshipBean bean = formModel.getObject().copy();
+                    bean.normalize();
+                    if (!bean.isValid()) {
+                        error(getString(
+                                "VirtualRelationshipsPanel.validationError", null, "All fields must be provided."));
+                        target.add(modalFeedback);
+                        return;
+                    }
+                    applyRelationship(bean, relationshipIndex);
+                    relationshipModal.close(target);
+                    target.add(tableContainer, emptyContainer, feedback);
+                }
+
+                @Override
+                protected void onError(AjaxRequestTarget target) {
+                    target.add(modalFeedback);
+                }
+            };
+            form.add(save);
+
+            AjaxButton cancel = new AjaxButton("cancel") {
+                @Override
+                protected void onSubmit(AjaxRequestTarget target) {
+                    relationshipModal.close(target);
+                }
+            };
+            cancel.setDefaultFormProcessing(false);
+            form.add(cancel);
+        }
+
+        private TextField<String> createTextField(String id) {
+            TextField<String> field = new TextField<>(id);
+            field.setRequired(true);
+            field.add(StringValidator.maximumLength(256));
+            return field;
+        }
+
+        private DropDownChoice<String> createKindChoice(String id) {
+            DropDownChoice<String> choice = new DropDownChoice<>(id, ENTITY_KINDS);
+            choice.setNullValid(false);
+            choice.setRequired(true);
+            return choice;
+        }
+
+        private DropDownChoice<String> createCardinalityChoice(String id) {
+            DropDownChoice<String> choice = new DropDownChoice<>(id, CARDINALITIES);
+            choice.setNullValid(false);
+            choice.setRequired(true);
+            return choice;
+        }
     }
 
     private static final class VirtualRelationshipBean implements Serializable {
@@ -397,16 +433,16 @@ public class VirtualRelationshipsPanel extends Panel {
         private String summarize(String schema, String entity, String column, String kind) {
             StringBuilder sb = new StringBuilder();
             if (schema != null) {
-                sb.append(schema).append(".");
+                sb.append(schema).append('.');
             }
             if (entity != null) {
                 sb.append(entity);
             }
             if (column != null) {
-                sb.append(".").append(column);
+                sb.append('.').append(column);
             }
             if (kind != null) {
-                sb.append(" (").append(kind).append(")");
+                sb.append(' ').append('(').append(kind).append(')');
             }
             return sb.toString();
         }
