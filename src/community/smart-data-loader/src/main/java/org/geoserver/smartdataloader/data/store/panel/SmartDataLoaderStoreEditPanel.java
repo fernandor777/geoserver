@@ -32,6 +32,8 @@ import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.smartdataloader.data.JDBCDataStoreFactoryFinder;
 import org.geoserver.smartdataloader.data.SmartDataLoaderDataAccessFactory;
 import org.geoserver.smartdataloader.data.store.NestedTreeDomainModelVisitor;
+import org.geoserver.smartdataloader.data.store.virtualfk.Relationships;
+import org.geoserver.smartdataloader.data.store.virtualfk.RelationshipsXmlParser;
 import org.geoserver.smartdataloader.domain.DomainModelBuilder;
 import org.geoserver.smartdataloader.domain.DomainModelConfig;
 import org.geoserver.smartdataloader.domain.entities.DomainModel;
@@ -39,8 +41,8 @@ import org.geoserver.smartdataloader.metadata.DataStoreMetadata;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataFactory;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
-import org.geoserver.smartdataloader.metadata.jdbc.DefaultJdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
+import org.geoserver.smartdataloader.metadata.jdbc.VirtualFkJdbcHelper;
 import org.geoserver.web.data.store.StoreEditPanel;
 import org.geoserver.web.data.store.panel.TextParamPanel;
 import org.geoserver.web.data.store.panel.WorkspacePanel;
@@ -411,12 +413,33 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             jdbcDataStore = factory.createDataStore(ds.getConnectionParameters());
             DataStoreMetadataConfig config = new JdbcDataStoreMetadataConfig(
                     jdbcDataStore, ds.getConnectionParameters().get("passwd").toString());
-            dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config, new DefaultJdbcHelper());
+            Relationships relationships = extractVirtualRelationships();
+            dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config, new VirtualFkJdbcHelper(relationships));
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Error retrieving metadata from DB.");
+            throw new RuntimeException("Error retrieving metadata from DB.", e);
+        } finally {
+            if (jdbcDataStore != null) {
+                jdbcDataStore.dispose();
+            }
         }
-        jdbcDataStore.dispose();
         return dsm;
+    }
+
+    private Relationships extractVirtualRelationships() {
+        Relationships relationships = new Relationships();
+        Object relationshipsParam = smartAppSchemaDataStoreInfo
+                .getConnectionParameters()
+                .get(SmartDataLoaderDataAccessFactory.VIRTUAL_RELATIONSHIPS.key);
+        if (relationshipsParam instanceof String relationshipsXml && !relationshipsXml.isBlank()) {
+            try {
+                relationships = RelationshipsXmlParser.parse(relationshipsXml);
+            } catch (Exception e) {
+                throw new RuntimeException("Error parsing virtual relationships configuration.", e);
+            }
+        }
+        return relationships;
     }
 
     /** Helper that includes all the detected nodes in the DomainModel */
