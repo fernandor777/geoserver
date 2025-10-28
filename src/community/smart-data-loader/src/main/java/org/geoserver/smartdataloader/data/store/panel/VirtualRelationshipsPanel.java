@@ -18,6 +18,7 @@ import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
+import org.apache.wicket.markup.html.panel.EmptyPanel;
 import org.apache.wicket.markup.html.panel.FeedbackPanel;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.CompoundPropertyModel;
@@ -100,6 +101,14 @@ public class VirtualRelationshipsPanel extends Panel {
         relationshipModal.setOutputMarkupId(true);
         relationshipModal.setResizable(false);
         relationshipModal.setAutoSize(true);
+        relationshipModal.setContent(new EmptyPanel(relationshipModal.getContentId()));
+        relationshipModal.setWindowClosedCallback(target -> {
+            relationshipModal.setContent(new EmptyPanel(relationshipModal.getContentId()));
+            if (target != null) {
+                target.add(tableContainer, emptyContainer, feedback);
+                relationshipModal.close(target);
+            }
+        });
         add(relationshipModal);
 
         updateVisibility();
