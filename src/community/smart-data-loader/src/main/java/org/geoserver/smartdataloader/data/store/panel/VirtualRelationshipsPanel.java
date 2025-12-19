@@ -120,7 +120,6 @@ public class VirtualRelationshipsPanel extends Panel {
             relationshipModal.setContent(new EmptyPanel(relationshipModal.getContentId()));
             if (target != null) {
                 target.add(tableContainer, emptyContainer, feedback);
-                relationshipModal.close(target);
             }
         });
         add(relationshipModal);

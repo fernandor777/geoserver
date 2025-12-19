@@ -1,12 +1,12 @@
 package org.geoserver.smartdataloader.data.store;
 
 import java.util.Map;
-import org.geoserver.smartdataloader.domain.DomainModelVisitorImpl;
+import org.geoserver.smartdataloader.domain.IndexedDomainModelVisitorImpl;
 import org.geoserver.smartdataloader.domain.entities.DomainEntity;
 import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
 import org.geoserver.smartdataloader.domain.entities.DomainModel;
 
-public class ExpressionOverridesDomainModelVisitor extends DomainModelVisitorImpl {
+public class ExpressionOverridesDomainModelVisitor extends IndexedDomainModelVisitorImpl {
 
     private final Map<String, String> overrideExpressions;
     private final PkOverrider pkOverrider;
@@ -40,11 +40,13 @@ public class ExpressionOverridesDomainModelVisitor extends DomainModelVisitorImp
 
     @Override
     public void visitDomainRootEntity(DomainEntity entity) {
+        super.visitDomainRootEntity(entity);
         currentEntity = entity;
     }
 
     @Override
     public void visitDomainChainedEntity(DomainEntity entity) {
+        super.visitDomainChainedEntity(entity);
         currentEntity = entity;
     }
 }

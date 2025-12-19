@@ -21,4 +21,14 @@ public class IndexedDomainModelVisitorImpl extends DomainModelVisitorImpl implem
     public boolean isVisited(Object object) {
         return visitedEntities.contains(object);
     }
+
+    @Override
+    public void visitDomainRootEntity(org.geoserver.smartdataloader.domain.entities.DomainEntity entity) {
+        visitedEntities.add(entity);
+    }
+
+    @Override
+    public void visitDomainChainedEntity(org.geoserver.smartdataloader.domain.entities.DomainEntity entity) {
+        visitedEntities.add(entity);
+    }
 }
