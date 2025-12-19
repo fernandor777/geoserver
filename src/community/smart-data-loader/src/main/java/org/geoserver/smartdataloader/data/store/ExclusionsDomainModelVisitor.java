@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import org.geoserver.smartdataloader.domain.DomainModelBuilder;
 import org.geoserver.smartdataloader.domain.DomainModelConfig;
-import org.geoserver.smartdataloader.domain.DomainModelVisitorImpl;
+import org.geoserver.smartdataloader.domain.IndexedDomainModelVisitorImpl;
 import org.geoserver.smartdataloader.domain.entities.DomainEntity;
 import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
 import org.geoserver.smartdataloader.domain.entities.DomainModel;
@@ -19,7 +19,7 @@ import org.geoserver.smartdataloader.domain.entities.DomainRelation;
  * DomainModelVisitor that based on list of exclusions tails a domainmodel and returns a new one with removed
  * domainmodel objects.
  */
-public class ExclusionsDomainModelVisitor extends DomainModelVisitorImpl {
+public class ExclusionsDomainModelVisitor extends IndexedDomainModelVisitorImpl {
 
     private List<String> exclusions;
     private DomainEntity currentEntity;
@@ -77,11 +77,13 @@ public class ExclusionsDomainModelVisitor extends DomainModelVisitorImpl {
 
     @Override
     public void visitDomainRootEntity(DomainEntity entity) {
+        super.visitDomainRootEntity(entity);
         currentEntity = entity;
     }
 
     @Override
     public void visitDomainChainedEntity(DomainEntity entity) {
+        super.visitDomainChainedEntity(entity);
         currentEntity = entity;
     }
 

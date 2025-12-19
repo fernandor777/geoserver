@@ -184,13 +184,6 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
             throw new IllegalArgumentException(
                     "Relationship '" + relationshipName + "' " + role + " key must reference a single column");
         }
-        if (allowedSchema != null
-                && !allowedSchema.trim().isEmpty()
-                && endpoint.getSchema() != null
-                && !allowedSchema.equalsIgnoreCase(endpoint.getSchema())) {
-            throw new IllegalArgumentException(
-                    "Relationship '" + relationshipName + "' " + role + " schema must be '" + allowedSchema + "'");
-        }
         JdbcTableMetadata table = findTableMetadata(metaData, endpoint.getSchema(), endpoint.getEntity());
         if (table == null) {
             throw new IllegalArgumentException("Relationship '" + relationshipName + "' references missing " + role

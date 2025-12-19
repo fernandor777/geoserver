@@ -103,8 +103,8 @@ public final class DomainModelBuilder {
                     entity.add(domainAttribute);
                 }
             });
+            visitedEntities.remove(entityName);
         }
-        visitedEntities.remove(entityName);
         return entity;
     }
 
@@ -197,6 +197,7 @@ public final class DomainModelBuilder {
                 return DomainAttributeType.NUMBER;
             case "serial":
             case "smallint":
+            case "int2":
             case "int4":
                 return DomainAttributeType.INT;
             case "bigint":
@@ -206,6 +207,7 @@ public final class DomainModelBuilder {
             case "text":
             case "varchar":
             case "uuid":
+            case "bpchar":
                 return DomainAttributeType.TEXT;
             case "time":
             case "date":

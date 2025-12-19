@@ -64,8 +64,9 @@ public class VirtualFkJdbcHelperTest {
         assertNotNull(delegate.getSchemaTables(null, "public"));
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void validationFailsOnSchemaMismatch() throws Exception {
+    @Test
+    public void validationAllowsInterSchemaRelationships() throws Exception {
+        // Inter-schema virtual relationships are supported: validation should not fail
         StubJdbcHelper delegate = new StubJdbcHelper();
         TestJdbcTableMetadata sourceTable = new TestJdbcTableMetadata(delegate, "other", "observations_v");
         sourceTable.addAttribute(new JdbcColumnMetadata(sourceTable, "station_id", "integer", false));
@@ -81,7 +82,24 @@ public class VirtualFkJdbcHelperTest {
                 new EntityRef("public", "stations", "TABLE", new Key("id"))));
 
         VirtualFkJdbcHelper helper = new VirtualFkJdbcHelper(delegate, relationships);
+
+        // Should not throw when validating inter-schema virtual relationships
         helper.validateVirtualRelationships(null, "public");
+
+        // Verify complementary relations were generated for both tables
+        List<RelationMetadata> sourceRelations = helper.getRelationsByTable(null, sourceTable);
+        assertEquals(1, sourceRelations.size());
+        VirtualRelationMetadata forward = (VirtualRelationMetadata) sourceRelations.get(0);
+        assertEquals(DomainRelationType.ONEMANY, forward.getRelationType());
+        assertEquals("station_id", forward.getSourceAttribute().getName());
+        assertEquals("id", forward.getDestinationAttribute().getName());
+
+        List<RelationMetadata> targetRelations = helper.getRelationsByTable(null, targetTable);
+        assertEquals(1, targetRelations.size());
+        VirtualRelationMetadata inverse = (VirtualRelationMetadata) targetRelations.get(0);
+        assertEquals(DomainRelationType.MANYONE, inverse.getRelationType());
+        assertEquals("id", inverse.getSourceAttribute().getName());
+        assertEquals("station_id", inverse.getDestinationAttribute().getName());
     }
 
     @Test(expected = IllegalArgumentException.class)
