@@ -28,6 +28,8 @@ import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute
 import org.geoserver.smartdataloader.domain.entities.DomainModel;
 import org.geoserver.smartdataloader.domain.entities.DomainRelation;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadata;
+import org.geoserver.smartdataloader.metadata.DataStoreMetadataConfig;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -43,6 +45,8 @@ public final class AppSchemaVisitor extends IndexedDomainModelVisitorImpl {
 
     private Node currentFeatureTypeMapping;
 
+    private String defaultSchema;
+
     public AppSchemaVisitor(String targetNamespacePrefix, String targetNamespaceUrl, String schemaUri) {
         this.targetNamespacePrefix = targetNamespacePrefix;
         this.schemaUri = schemaUri;
@@ -52,6 +56,10 @@ public final class AppSchemaVisitor extends IndexedDomainModelVisitorImpl {
 
     @Override
     public void visitDataStoreMetadata(DataStoreMetadata dataStoreMetadata) {
+        DataStoreMetadataConfig config = dataStoreMetadata.getDataStoreMetadataConfig();
+        if (config instanceof JdbcDataStoreMetadataConfig) {
+            defaultSchema = ((JdbcDataStoreMetadataConfig) config).getSchema();
+        }
         Node sourceDataStoresNode = getSourceDataStoresNode(appDocument);
         // append dataStoresMetadata to sourceDataStores node
         Node dataStoreNode = createDataStoreNode(appDocument, dataStoreMetadata);
@@ -149,6 +157,7 @@ public final class AppSchemaVisitor extends IndexedDomainModelVisitorImpl {
     private Node handleEntity(DomainEntity entity) {
         String sourceDataStoreValue = getSourceDataStoreId(appDocument);
         String sourceTypeValue = entity.getName();
+        String sourceSchemaValue = resolveSourceSchema(entity.getSchema());
         String targetElementValue =
                 this.targetNamespacePrefix + ":" + entity.getGmlInfo().featureTypeName();
         // check if featureTypeMapping node is present in document
@@ -158,10 +167,23 @@ public final class AppSchemaVisitor extends IndexedDomainModelVisitorImpl {
         }
         Node typeMappingsNode = appDocument.getElementsByTagName("typeMappings").item(0);
         // insert entity into typeMappings node
-        featureTypeMappingNode =
-                createFeatureTypeMappingNode(appDocument, sourceDataStoreValue, sourceTypeValue, targetElementValue);
+        featureTypeMappingNode = createFeatureTypeMappingNode(
+                appDocument, sourceDataStoreValue, sourceTypeValue, targetElementValue, sourceSchemaValue);
         typeMappingsNode.appendChild(featureTypeMappingNode);
         return featureTypeMappingNode;
+    }
+
+    private String resolveSourceSchema(String entitySchema) {
+        if (entitySchema == null || entitySchema.trim().isEmpty()) {
+            return null;
+        }
+        if (defaultSchema == null || defaultSchema.trim().isEmpty()) {
+            return entitySchema;
+        }
+        if (defaultSchema.equalsIgnoreCase(entitySchema)) {
+            return null;
+        }
+        return entitySchema;
     }
 
     public Document getDocument() {

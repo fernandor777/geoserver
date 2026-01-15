@@ -19,6 +19,7 @@ import org.geoserver.smartdataloader.metadata.AttributeMetadata;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadata;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
 import org.geoserver.smartdataloader.metadata.RelationMetadata;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcTableMetadata;
 import org.geotools.util.logging.Logging;
 
 /**
@@ -32,8 +33,8 @@ public final class DomainModelBuilder {
     private final DataStoreMetadata dataStoreMetadata;
     private final DomainModelConfig domainModelConfig;
 
-    private final Map<String, DomainEntity> domainEntitiesIndex = new HashMap<>();
-    private final Set<String> visitedEntities = new HashSet<>();
+    private final Map<EntityMetadata, DomainEntity> domainEntitiesIndex = new HashMap<>();
+    private final Set<EntityMetadata> visitedEntities = new HashSet<>();
 
     public DomainModelBuilder(DataStoreMetadata dataStoreMetadata, DomainModelConfig domainModelConfig) {
         this.dataStoreMetadata = dataStoreMetadata;
@@ -46,22 +47,26 @@ public final class DomainModelBuilder {
             throw new RuntimeException(
                     "Root entity name '" + domainModelConfig.getRootEntityName() + "' does not exists!");
         }
-        DomainEntity rootEntity = this.buildRootDomainEntity(rootEntityMetadata.getName());
+        DomainEntity rootEntity = this.buildRootDomainEntity(rootEntityMetadata);
         DomainModel dm = new DomainModel(this.dataStoreMetadata, rootEntity);
         return dm;
     }
 
-    private DomainEntity buildRootDomainEntity(String entityName) {
-        return buildDomainEntity(entityName, null);
+    private DomainEntity buildRootDomainEntity(EntityMetadata entityMetadata) {
+        return buildDomainEntity(entityMetadata, null);
     }
 
     private DomainEntity indexEntity(EntityMetadata entityMetadata) {
         // let's try to retrieve the domain entity
-        DomainEntity entity = domainEntitiesIndex.get(entityMetadata.getName());
+        DomainEntity entity = domainEntitiesIndex.get(entityMetadata);
         if (entity == null) {
             // first time we are visiting this entity metadata so we need to build a domain entity
-            entity = new DomainEntity(entityMetadata.getName(), domainModelConfig.getEntitiesPrefix());
-            domainEntitiesIndex.put(entity.getName(), entity);
+            String schema = null;
+            if (entityMetadata instanceof JdbcTableMetadata) {
+                schema = ((JdbcTableMetadata) entityMetadata).getSchema();
+            }
+            entity = new DomainEntity(entityMetadata.getName(), domainModelConfig.getEntitiesPrefix(), schema);
+            domainEntitiesIndex.put(entityMetadata, entity);
         } else {
             // we already have our entity
             return entity;
@@ -70,15 +75,13 @@ public final class DomainModelBuilder {
         return entity;
     }
 
-    private DomainEntity buildDomainEntity(String entityName, DomainRelation fromRelation) {
-        boolean isVisited = visitedEntities.contains(entityName);
-        visitedEntities.add(entityName);
-        // retrieve the metadata for our entity
-        EntityMetadata entityMetadata = dataStoreMetadata.getEntityMetadata(entityName);
+    private DomainEntity buildDomainEntity(EntityMetadata entityMetadata, DomainRelation fromRelation) {
         if (entityMetadata == null) {
-            // looks like there is not metadata for our entity, we are done
-            throw new RuntimeException("Could not find metadata for entity '" + entityName + "'");
+            throw new RuntimeException("Could not find metadata for entity");
         }
+        boolean isVisited = visitedEntities.contains(entityMetadata);
+        visitedEntities.add(entityMetadata);
+        // retrieve the metadata for our entity
         // let's try to retrieve the domain entity or create it if needed
         DomainEntity entity = indexEntity(entityMetadata);
         if (!isVisited) {
@@ -103,7 +106,7 @@ public final class DomainModelBuilder {
                     entity.add(domainAttribute);
                 }
             });
-            visitedEntities.remove(entityName);
+            visitedEntities.remove(entityMetadata);
         }
         return entity;
     }
@@ -124,8 +127,7 @@ public final class DomainModelBuilder {
         domainRelation.setContainingEntity(containingDomainEntity);
         domainRelation.setContainingKeyAttribute(buildRelationShipAttribute(sourceAttribute));
         // set the destination entity and attribute
-        DomainEntity destinationDomainEntity =
-                buildDomainEntity(destinationAttribute.getEntity().getName(), domainRelation);
+        DomainEntity destinationDomainEntity = buildDomainEntity(destinationAttribute.getEntity(), domainRelation);
         domainRelation.setDestinationEntity(destinationDomainEntity);
         domainRelation.setDestinationKeyAttribute(buildRelationShipAttribute(destinationAttribute));
         return domainRelation;
