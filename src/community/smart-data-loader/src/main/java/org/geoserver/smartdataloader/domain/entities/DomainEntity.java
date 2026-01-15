@@ -17,9 +17,14 @@ public final class DomainEntity {
     private final List<DomainRelation> relations = new ArrayList<>();
 
     private final String name;
+    private final String schema;
     private final GmlInfo gmlInfo;
 
     public DomainEntity(String name, String entityPrefix) {
+        this(name, entityPrefix, null);
+    }
+
+    public DomainEntity(String name, String entityPrefix, String schema) {
         if (StringUtils.isBlank(name)) {
             throw new IllegalArgumentException("Entity name cannot be null or empty");
         }
@@ -27,11 +32,16 @@ public final class DomainEntity {
             entityPrefix = "";
         }
         this.name = name;
+        this.schema = StringUtils.isBlank(schema) ? null : schema;
         this.gmlInfo = new GmlInfo(entityPrefix + name);
     }
 
     public String getName() {
         return this.name;
+    }
+
+    public String getSchema() {
+        return schema;
     }
 
     public GmlInfo getGmlInfo() {

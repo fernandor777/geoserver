@@ -223,6 +223,7 @@ public final class AppSchemaUtils {
      * <pre>{@code
      * <FeatureTypeMapping>
      * 		<sourceDataStore>DATASTORE_ID</sourceDataStore>
+     *		<sourceDatabaseSchema>SCHEMA_NAME</sourceDatabaseSchema>
      *		<sourceType>SOURCE_TYPE</sourceType>
      *		<targetElement>TARGET_ELEMENT_NAME</targetElement>
      *		<attributeMappings>
@@ -234,11 +235,20 @@ public final class AppSchemaUtils {
      * </FeatureTypeMapping>}
      */
     static Element createFeatureTypeMappingNode(
-            Document document, String sourceDataStoreValue, String sourceTypeValue, String targetElementValue) {
+            Document document,
+            String sourceDataStoreValue,
+            String sourceTypeValue,
+            String targetElementValue,
+            String sourceSchemaValue) {
         Element featureTypeMappingNode = document.createElement("FeatureTypeMapping");
         Element sourceDataStoreNode = document.createElement("sourceDataStore");
         sourceDataStoreNode.setTextContent(sourceDataStoreValue);
         featureTypeMappingNode.appendChild(sourceDataStoreNode);
+        if (sourceSchemaValue != null && !sourceSchemaValue.trim().isEmpty()) {
+            Element sourceDatabaseSchemaNode = document.createElement("sourceDatabaseSchema");
+            sourceDatabaseSchemaNode.setTextContent(sourceSchemaValue);
+            featureTypeMappingNode.appendChild(sourceDatabaseSchemaNode);
+        }
         Element sourceTypeNode = document.createElement("sourceType");
         sourceTypeNode.setTextContent(sourceTypeValue);
         featureTypeMappingNode.appendChild(sourceTypeNode);
