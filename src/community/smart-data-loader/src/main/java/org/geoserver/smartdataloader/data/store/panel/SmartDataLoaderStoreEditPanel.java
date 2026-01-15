@@ -436,11 +436,14 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         Object relationshipsParam = smartAppSchemaDataStoreInfo
                 .getConnectionParameters()
                 .get(SmartDataLoaderDataAccessFactory.VIRTUAL_RELATIONSHIPS.key);
-        if (relationshipsParam instanceof String relationshipsXml && !relationshipsXml.isBlank()) {
-            try {
-                relationships = RelationshipsXmlParser.parse(relationshipsXml);
-            } catch (Exception e) {
-                throw new RuntimeException("Error parsing virtual relationships configuration.", e);
+        if (relationshipsParam instanceof String) {
+            String relationshipsXml = (String) relationshipsParam;
+            if (!relationshipsXml.isBlank()) {
+                try {
+                    relationships = RelationshipsXmlParser.parse(relationshipsXml);
+                } catch (Exception e) {
+                    throw new RuntimeException("Error parsing virtual relationships configuration.", e);
+                }
             }
         }
         return relationships;

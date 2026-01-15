@@ -2,7 +2,7 @@ package org.geoserver.smartdataloader.data.store;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.lang3.Strings;
+import org.apache.commons.lang3.StringUtils;
 import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
 
 /** Class responsible for overriding primary key attributes based on provided rules. */
@@ -29,10 +29,12 @@ public class PkOverrider {
         if (!overridePks.containsKey(currentEntityName)) {
             return;
         }
-        if (attribute.isIdentifier() && !Strings.CI.equals(attribute.getName(), overridePks.get(currentEntityName))) {
+        if (attribute.isIdentifier()
+                && !StringUtils.equalsIgnoreCase(attribute.getName(), overridePks.get(currentEntityName))) {
             attribute.setIdentifier(false);
         }
-        if (!attribute.isIdentifier() && Strings.CI.equals(attribute.getName(), overridePks.get(currentEntityName))) {
+        if (!attribute.isIdentifier()
+                && StringUtils.equalsIgnoreCase(attribute.getName(), overridePks.get(currentEntityName))) {
             attribute.setIdentifier(true);
         }
     }
