@@ -43,6 +43,7 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
             attributes.forEach(attributeMetadata -> {
                 jTable.addAttribute(attributeMetadata);
             });
+            jTable.setAttributesLoaded(true);
             // load relations
             List<RelationMetadata> tableRelations =
                     jdbcHelper.getRelationsByTable(jdbcConfig.getConnection().getMetaData(), jTable);
@@ -50,6 +51,7 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
                 jTable.addRelation(relationMetadata);
                 relations.add(relationMetadata);
             });
+            jTable.setRelationsLoaded(true);
         }
     }
 
