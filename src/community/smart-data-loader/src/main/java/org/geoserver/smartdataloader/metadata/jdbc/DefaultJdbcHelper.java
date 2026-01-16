@@ -360,7 +360,7 @@ public class DefaultJdbcHelper implements JdbcHelper {
                 Iterator<JdbcForeignKeyColumnMetadata> iFkColumns = fkColumns.iterator();
                 while (iFkColumns.hasNext()) {
                     JdbcForeignKeyColumnMetadata aFkColumn = iFkColumns.next();
-                    DomainRelationType type = getCardinality(table, key);
+                    DomainRelationType type = getCardinality(metaData, table, key);
                     JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, aFkColumn);
                     relations.add(relation);
                     table.addRelation(relation);
@@ -552,6 +552,12 @@ public class DefaultJdbcHelper implements JdbcHelper {
     public DomainRelationType getCardinality(JdbcTableMetadata table, JdbcForeignKeyConstraintMetadata fkConstraint)
             throws Exception {
         DatabaseMetaData metaData = table.getConnection().getMetaData();
+        return getCardinality(metaData, table, fkConstraint);
+    }
+
+    private DomainRelationType getCardinality(
+            DatabaseMetaData metaData, JdbcTableMetadata table, JdbcForeignKeyConstraintMetadata fkConstraint)
+            throws Exception {
         SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> fkMultimap =
                 getForeignKeysByTable(metaData, table);
         JdbcPrimaryKeyConstraintMetadata primaryKey = getPrimaryKeyColumnsByTable(metaData, table);

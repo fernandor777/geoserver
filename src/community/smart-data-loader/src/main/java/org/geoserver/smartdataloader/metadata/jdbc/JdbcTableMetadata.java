@@ -24,6 +24,8 @@ public class JdbcTableMetadata extends EntityMetadata implements JdbcConnectable
     private final String catalog;
     private final String schema;
     private JdbcHelper jdbcHelper;
+    private boolean attributesLoaded;
+    private boolean relationsLoaded;
 
     public JdbcTableMetadata(Connection connection, String catalog, String schema, String name, JdbcHelper jdbcHelper) {
         super(name);
@@ -91,8 +93,9 @@ public class JdbcTableMetadata extends EntityMetadata implements JdbcConnectable
     public List<AttributeMetadata> getAttributes() {
         try {
             // Lazy load in case not loaded before
-            if (attributes.isEmpty()) {
+            if (!attributesLoaded) {
                 attributes.addAll(jdbcHelper.getColumnsByTable(connection.getMetaData(), this));
+                attributesLoaded = true;
             }
             return attributes;
         } catch (Exception e) {
@@ -116,8 +119,9 @@ public class JdbcTableMetadata extends EntityMetadata implements JdbcConnectable
     @Override
     public List<RelationMetadata> getRelations() {
         try {
-            if (relations.isEmpty()) {
+            if (!relationsLoaded) {
                 relations.addAll(jdbcHelper.getRelationsByTable(connection.getMetaData(), this));
+                relationsLoaded = true;
             }
             return relations;
         } catch (Exception e) {
@@ -127,6 +131,14 @@ public class JdbcTableMetadata extends EntityMetadata implements JdbcConnectable
 
     void setJdbcHelper(JdbcHelper jdbcHelper) {
         this.jdbcHelper = Objects.requireNonNull(jdbcHelper, "jdbcHelper must not be null");
+    }
+
+    void setAttributesLoaded(boolean loaded) {
+        this.attributesLoaded = loaded;
+    }
+
+    void setRelationsLoaded(boolean loaded) {
+        this.relationsLoaded = loaded;
     }
 
     JdbcHelper getJdbcHelper() {

@@ -7,7 +7,9 @@ package org.geoserver.smartdataloader.metadata.jdbc;
 import java.sql.DatabaseMetaData;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.SortedMap;
 import org.geoserver.smartdataloader.data.store.virtualfk.EntityRef;
@@ -31,6 +33,9 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
 
     private final JdbcHelper delegate;
     private final Relationships relationships;
+    private final Map<SchemaKey, List<JdbcTableMetadata>> schemaTablesCache = new HashMap<>();
+    private final Map<EntityKey, List<Relationship>> relationshipsBySource = new HashMap<>();
+    private final Map<EntityKey, List<Relationship>> relationshipsByTarget = new HashMap<>();
 
     /**
      * Builds a helper using the default JDBC metadata implementation as delegate.
@@ -62,13 +67,12 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     public VirtualFkJdbcHelper(JdbcHelper delegate, Relationships relationships) {
         this.delegate = (delegate != null) ? delegate : new DefaultJdbcHelper();
         this.relationships = (relationships != null) ? relationships : new Relationships();
+        indexRelationships();
     }
 
     @Override
     public List<JdbcTableMetadata> getSchemaTables(DatabaseMetaData metaData, String schema) throws Exception {
-        List<JdbcTableMetadata> delegateTables = delegate.getSchemaTables(metaData, schema);
-        List<JdbcTableMetadata> tables = (delegateTables != null) ? new ArrayList<>(delegateTables) : new ArrayList<>();
-        applyVirtualHelper(tables);
+        List<JdbcTableMetadata> tables = new ArrayList<>(getSchemaTablesCached(metaData, schema));
         for (Relationship relationship : relationships.getRelationships()) {
             includeRelationshipEndpoint(metaData, tables, relationship.getSource());
             includeRelationshipEndpoint(metaData, tables, relationship.getTarget());
@@ -114,14 +118,12 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
             table.setJdbcHelper(this);
         }
         List<RelationMetadata> relations = new ArrayList<>();
-        for (Relationship relationship : relationships.getRelationships()) {
-            DomainRelationType cardinality = RelationshipsXmlParser.resolveCardinality(relationship.getCardinality());
-            boolean matchesSource = Objects.equals(relationship.getSource().getEntity(), table.getName())
-                    && Objects.equals(relationship.getSource().getSchema(), table.getSchema());
-            boolean matchesTarget = Objects.equals(relationship.getTarget().getEntity(), table.getName())
-                    && Objects.equals(relationship.getTarget().getSchema(), table.getSchema());
-
-            if (matchesSource) {
+        EntityKey tableKey = EntityKey.from(table);
+        List<Relationship> sourceRelationships = relationshipsBySource.get(tableKey);
+        if (sourceRelationships != null) {
+            for (Relationship relationship : sourceRelationships) {
+                DomainRelationType cardinality =
+                        RelationshipsXmlParser.resolveCardinality(relationship.getCardinality());
                 AttributeMetadata sourceAttr =
                         findAttribute(table, relationship.getSource().getKey().getColumn());
                 JdbcTableMetadata targetTableMetadata = findTableMetadata(
@@ -136,8 +138,12 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
                     relations.add(virtualRelation);
                 }
             }
-
-            if (matchesTarget) {
+        }
+        List<Relationship> targetRelationships = relationshipsByTarget.get(tableKey);
+        if (targetRelationships != null) {
+            for (Relationship relationship : targetRelationships) {
+                DomainRelationType cardinality =
+                        RelationshipsXmlParser.resolveCardinality(relationship.getCardinality());
                 // Generate the complementary direction so App-Schema sees a bidirectional mapping.
                 AttributeMetadata targetAttr =
                         findAttribute(table, relationship.getTarget().getKey().getColumn());
@@ -166,11 +172,15 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     }
 
     private boolean isVirtualForeignKey(JdbcTableMetadata table, String columnName) {
-        // check if column matches any source in relationships
-        return relationships.getRelationships().stream()
-                .anyMatch(rel -> rel.getSource().getEntity().equals(table.getName())
-                        && rel.getSource().getKey().getColumn().equals(columnName)
-                        && rel.getSource().getSchema().equals(table.getSchema()));
+        if (table == null || columnName == null) {
+            return false;
+        }
+        List<Relationship> sourceRelationships = relationshipsBySource.get(EntityKey.from(table));
+        if (sourceRelationships == null) {
+            return false;
+        }
+        return sourceRelationships.stream()
+                .anyMatch(rel -> columnName.equals(rel.getSource().getKey().getColumn()));
     }
 
     private void validateEndpoint(
@@ -301,8 +311,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
         if (tableName == null) {
             return null;
         }
-        List<JdbcTableMetadata> schemaTables = delegate.getSchemaTables(metaData, schema);
-        applyVirtualHelper(schemaTables);
+        List<JdbcTableMetadata> schemaTables = getSchemaTablesCached(metaData, schema);
         if (schemaTables == null) {
             return null;
         }
@@ -312,6 +321,98 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
             }
         }
         return null;
+    }
+
+    private List<JdbcTableMetadata> getSchemaTablesCached(DatabaseMetaData metaData, String schema) throws Exception {
+        SchemaKey key = new SchemaKey(schema);
+        List<JdbcTableMetadata> cached = schemaTablesCache.get(key);
+        if (cached == null) {
+            List<JdbcTableMetadata> delegateTables = delegate.getSchemaTables(metaData, schema);
+            cached = (delegateTables != null) ? delegateTables : new ArrayList<>();
+            applyVirtualHelper(cached);
+            schemaTablesCache.put(key, cached);
+        }
+        return cached;
+    }
+
+    private void indexRelationships() {
+        for (Relationship relationship : relationships.getRelationships()) {
+            if (relationship.getSource() != null) {
+                EntityKey sourceKey = new EntityKey(
+                        relationship.getSource().getSchema(),
+                        relationship.getSource().getEntity());
+                relationshipsBySource
+                        .computeIfAbsent(sourceKey, key -> new ArrayList<>())
+                        .add(relationship);
+            }
+            if (relationship.getTarget() != null) {
+                EntityKey targetKey = new EntityKey(
+                        relationship.getTarget().getSchema(),
+                        relationship.getTarget().getEntity());
+                relationshipsByTarget
+                        .computeIfAbsent(targetKey, key -> new ArrayList<>())
+                        .add(relationship);
+            }
+        }
+    }
+
+    private static final class SchemaKey {
+        private final String schema;
+
+        private SchemaKey(String schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) {
+                return true;
+            }
+            if (!(object instanceof SchemaKey)) {
+                return false;
+            }
+            SchemaKey other = (SchemaKey) object;
+            return Objects.equals(schema, other.schema);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(schema);
+        }
+    }
+
+    private static final class EntityKey {
+        private final String schema;
+        private final String name;
+
+        private EntityKey(String schema, String name) {
+            this.schema = schema;
+            this.name = name;
+        }
+
+        static EntityKey from(JdbcTableMetadata table) {
+            if (table == null) {
+                return new EntityKey(null, null);
+            }
+            return new EntityKey(table.getSchema(), table.getName());
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) {
+                return true;
+            }
+            if (!(object instanceof EntityKey)) {
+                return false;
+            }
+            EntityKey other = (EntityKey) object;
+            return Objects.equals(schema, other.schema) && Objects.equals(name, other.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(schema, name);
+        }
     }
 
     private AttributeMetadata findAttribute(JdbcTableMetadata tableMetadata, String columnName) {
