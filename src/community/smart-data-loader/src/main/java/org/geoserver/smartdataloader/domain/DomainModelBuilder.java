@@ -7,6 +7,7 @@ package org.geoserver.smartdataloader.domain;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -76,17 +77,18 @@ public final class DomainModelBuilder {
     }
 
     private DomainEntity buildDomainEntity(EntityMetadata entityMetadata, DomainRelation fromRelation) {
-        if (entityMetadata == null) {
+        EntityMetadata resolvedMetadata = resolveEntityMetadata(entityMetadata);
+        if (resolvedMetadata == null) {
             throw new RuntimeException("Could not find metadata for entity");
         }
-        boolean isVisited = visitedEntities.contains(entityMetadata);
-        visitedEntities.add(entityMetadata);
+        boolean isVisited = visitedEntities.contains(resolvedMetadata);
+        visitedEntities.add(resolvedMetadata);
         // retrieve the metadata for our entity
         // let's try to retrieve the domain entity or create it if needed
-        DomainEntity entity = indexEntity(entityMetadata);
+        DomainEntity entity = indexEntity(resolvedMetadata);
         if (!isVisited) {
             // let's add the relations of our entity
-            entityMetadata.getRelations().forEach(relation -> {
+            resolvedMetadata.getRelations().forEach(relation -> {
                 if (fromRelation == null
                         || !relation.participatesInRelation(
                                 fromRelation.getContainingEntity().getName())) {
@@ -95,7 +97,7 @@ public final class DomainModelBuilder {
                 }
             });
             // let's add attributes of our entity, excluding all attributes that are foreign keys
-            entityMetadata.getAttributes().forEach(attribute -> {
+            resolvedMetadata.getAttributes().forEach(attribute -> {
                 // exclude external attributes references
                 if (!attribute.isExternalReference()) {
                     DomainEntitySimpleAttribute domainAttribute = buildDomainEntitySimpleAttribute(attribute);
@@ -106,7 +108,7 @@ public final class DomainModelBuilder {
                     entity.add(domainAttribute);
                 }
             });
-            visitedEntities.remove(entityMetadata);
+            visitedEntities.remove(resolvedMetadata);
         }
         return entity;
     }
@@ -131,6 +133,41 @@ public final class DomainModelBuilder {
         domainRelation.setDestinationEntity(destinationDomainEntity);
         domainRelation.setDestinationKeyAttribute(buildRelationShipAttribute(destinationAttribute));
         return domainRelation;
+    }
+
+    private EntityMetadata resolveEntityMetadata(EntityMetadata entityMetadata) {
+        if (entityMetadata == null) {
+            return null;
+        }
+        if (!(entityMetadata instanceof JdbcTableMetadata)) {
+            EntityMetadata candidate = dataStoreMetadata.getEntityMetadata(entityMetadata.getName());
+            return candidate != null ? candidate : entityMetadata;
+        }
+        JdbcTableMetadata jdbcEntity = (JdbcTableMetadata) entityMetadata;
+        for (EntityMetadata candidate : dataStoreMetadata.getDataStoreEntities()) {
+            if (candidate instanceof JdbcTableMetadata) {
+                JdbcTableMetadata jdbcCandidate = (JdbcTableMetadata) candidate;
+                if (matchesTable(jdbcEntity, jdbcCandidate)) {
+                    return jdbcCandidate;
+                }
+            } else if (candidate.getName().equals(jdbcEntity.getName())) {
+                return candidate;
+            }
+        }
+        return entityMetadata;
+    }
+
+    private boolean matchesTable(JdbcTableMetadata left, JdbcTableMetadata right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        if (!left.getName().equals(right.getName())) {
+            return false;
+        }
+        if (!Objects.equals(left.getSchema(), right.getSchema())) {
+            return false;
+        }
+        return Objects.equals(left.getCatalog(), right.getCatalog());
     }
 
     /**
