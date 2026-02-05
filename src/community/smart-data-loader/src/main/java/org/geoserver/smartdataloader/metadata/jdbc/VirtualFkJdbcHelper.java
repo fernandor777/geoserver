@@ -4,9 +4,12 @@
  */
 package org.geoserver.smartdataloader.metadata.jdbc;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -275,6 +278,11 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
         return delegate.getInversedForeignKeysByTable(connection, table);
     }
 
+    @Override
+    public String cacheFingerprint() {
+        return delegate.cacheFingerprint() + "|virtualfk|" + relationshipsFingerprint();
+    }
+
     private void applyVirtualHelper(List<JdbcTableMetadata> tables) {
         if (tables == null) {
             return;
@@ -350,6 +358,55 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
                         .computeIfAbsent(targetKey, key -> new ArrayList<>())
                         .add(relationship);
             }
+        }
+    }
+
+    private String relationshipsFingerprint() {
+        List<String> parts = new ArrayList<>();
+        for (Relationship relationship : relationships.getRelationships()) {
+            parts.add(normalizeRelationship(relationship));
+        }
+        Collections.sort(parts);
+        return sha256(String.join("|", parts));
+    }
+
+    private String normalizeRelationship(Relationship relationship) {
+        if (relationship == null) {
+            return "";
+        }
+        return normalizeEntityRef(relationship.getSource())
+                + "->"
+                + normalizeEntityRef(relationship.getTarget())
+                + "#"
+                + Objects.toString(relationship.getCardinality(), "")
+                + "#"
+                + Objects.toString(relationship.getName(), "");
+    }
+
+    private String normalizeEntityRef(EntityRef entityRef) {
+        if (entityRef == null) {
+            return "";
+        }
+        String keyColumn = entityRef.getKey() != null ? entityRef.getKey().getColumn() : "";
+        return Objects.toString(entityRef.getSchema(), "")
+                + "."
+                + Objects.toString(entityRef.getEntity(), "")
+                + "."
+                + Objects.toString(keyColumn, "");
+    }
+
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(bytes.length * 2);
+            for (byte b : bytes) {
+                hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+                hex.append(Character.forDigit(b & 0xF, 16));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            return Integer.toHexString(value.hashCode());
         }
     }
 

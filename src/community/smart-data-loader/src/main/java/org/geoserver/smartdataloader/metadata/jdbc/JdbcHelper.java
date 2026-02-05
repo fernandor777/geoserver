@@ -12,6 +12,10 @@ import org.geoserver.smartdataloader.metadata.jdbc.constraint.JdbcForeignKeyCons
 import org.geoserver.smartdataloader.metadata.jdbc.constraint.JdbcPrimaryKeyConstraintMetadata;
 
 public interface JdbcHelper {
+    default String cacheFingerprint() {
+        return getClass().getName();
+    }
+
     List<JdbcTableMetadata> getSchemaTables(Connection connection, String schema) throws Exception;
 
     List<JdbcTableMetadata> getTables(Connection connection) throws Exception;
