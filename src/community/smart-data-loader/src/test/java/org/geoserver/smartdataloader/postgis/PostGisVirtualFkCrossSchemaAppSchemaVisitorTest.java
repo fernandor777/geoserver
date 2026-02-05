@@ -20,9 +20,9 @@ import org.geoserver.smartdataloader.domain.entities.DomainModel;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadata;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataFactory;
-import org.geoserver.smartdataloader.metadata.jdbc.DefaultJdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelper;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelperFactory;
 import org.geoserver.smartdataloader.metadata.jdbc.VirtualFkJdbcHelper;
 import org.geoserver.smartdataloader.visitors.appschema.AppSchemaVisitor;
 import org.geotools.jdbc.JDBCTestSetup;
@@ -70,7 +70,7 @@ public class PostGisVirtualFkCrossSchemaAppSchemaVisitorTest extends AbstractJDB
 
     @Override
     protected DataStoreMetadata getDataStoreMetadata(Connection connection) throws Exception {
-        JdbcHelper helper = new VirtualFkJdbcHelper(new DefaultJdbcHelper(), VIRTUAL_RELATIONSHIPS);
+        JdbcHelper helper = new VirtualFkJdbcHelper(JdbcHelperFactory.forConnection(connection), VIRTUAL_RELATIONSHIPS);
         DataStoreMetadataConfig config =
                 new JdbcDataStoreMetadataConfig(ONLINE_DB_SCHEMA, connection, null, ONLINE_DB_SCHEMA);
         return new DataStoreMetadataFactory().getDataStoreMetadata(config, helper);

@@ -43,7 +43,6 @@ import org.geotools.util.logging.Logging;
 public class PostgresCatalogJdbcHelper implements JdbcHelper {
 
     private static final Logger LOGGER = Logging.getLogger(PostgresCatalogJdbcHelper.class);
-    private static final String POSTGRES_PRODUCT = "postgresql";
     private static final String POSTGRES_TABLES_SQL =
             "SELECT n.nspname AS schema_name, c.relname AS table_name, c.relkind AS relkind "
                     + "FROM pg_class c "
@@ -220,19 +219,6 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         return new TableId(catalog, schema, name);
     }
 
-    private boolean isPostgres(Connection connection) {
-        if (connection == null) {
-            return false;
-        }
-        try {
-            String product = connection.getMetaData().getDatabaseProductName();
-            return product != null && product.toLowerCase().contains(POSTGRES_PRODUCT);
-        } catch (SQLException e) {
-            LOGGER.log(Level.FINE, "Unable to detect database product.", e);
-            return false;
-        }
-    }
-
     private String catalogOrNull(Connection connection) {
         if (connection == null) {
             return null;
@@ -367,26 +353,10 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         if (schema == null || schema.isEmpty()) {
             return getTables(connection);
         }
-        if (isPostgres(connection)) {
-            LOGGER.log(Level.INFO, "Using PostgreSQL bulk metadata queries for schema {0}.", schema);
-            List<JdbcTableMetadata> tables = loadSchemaTablesPostgres(connection, schema);
-            preloadSchemaMetadata(connection, schema, tables);
-            addCrossSchemaTablesFromCaches(connection, schema, tables);
-            return tables;
-        }
-        LOGGER.log(Level.FINE, "Using JDBC metadata queries for schema {0}.", schema);
-        DatabaseMetaData metaData = connection.getMetaData();
-        List<JdbcTableMetadata> tables = new ArrayList<>();
-        try (ResultSet tablesRs =
-                metaData.getTables(null, jdbcDataStore.escapeNamePattern(metaData, schema), "%", null)) {
-            List<JdbcTableMetadata> baseTables = getListOfTablesFromResultSet(metaData, tablesRs);
-            if (baseTables != null) {
-                tables.addAll(baseTables);
-            }
-        }
-        LOGGER.log(Level.FINE, "Preloading metadata for schema {0}.", schema);
+        LOGGER.log(Level.INFO, "Using PostgreSQL bulk metadata queries for schema {0}.", schema);
+        List<JdbcTableMetadata> tables = loadSchemaTablesPostgres(connection, schema);
         preloadSchemaMetadata(connection, schema, tables);
-        discoverCrossSchemaTables(metaData, tables);
+        addCrossSchemaTablesFromCaches(connection, schema, tables);
         return tables;
     }
 
@@ -398,17 +368,6 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
      */
     public void preloadSchemaMetadata(Connection connection, List<String> schemas) throws Exception {
         if (connection == null || schemas == null || schemas.isEmpty()) {
-            return;
-        }
-        if (!isPostgres(connection)) {
-            DatabaseMetaData metaData = connection.getMetaData();
-            for (String schema : schemas) {
-                if (schema == null || schema.isEmpty()) {
-                    continue;
-                }
-                List<JdbcTableMetadata> tables = loadSchemaTablesFallback(metaData, schema);
-                preloadSchemaMetadata(connection, schema, tables);
-            }
             return;
         }
         List<String> normalizedSchemas = new ArrayList<>();
@@ -442,9 +401,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         if (connection == null) {
             return;
         }
-        List<String> schemas = isPostgres(connection)
-                ? loadAllSchemasPostgres(connection)
-                : loadAllSchemasFallback(connection.getMetaData());
+        List<String> schemas = loadAllSchemasPostgres(connection);
         preloadSchemaMetadata(connection, schemas);
     }
 
@@ -453,15 +410,8 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         if (connection == null) {
             return Collections.emptyList();
         }
-        if (isPostgres(connection)) {
-            LOGGER.log(Level.FINE, "Using PostgreSQL bulk metadata queries for all schemas.");
-            return loadAllTablesPostgres(connection);
-        }
-        LOGGER.log(Level.FINE, "Using JDBC metadata queries for all schemas.");
-        DatabaseMetaData metaData = connection.getMetaData();
-        try (ResultSet tables = metaData.getTables(null, null, "%", null)) {
-            return getListOfTablesFromResultSet(metaData, tables);
-        }
+        LOGGER.log(Level.FINE, "Using PostgreSQL bulk metadata queries for all schemas.");
+        return loadAllTablesPostgres(connection);
     }
 
     private void discoverCrossSchemaTables(DatabaseMetaData metaData, List<JdbcTableMetadata> tables) throws Exception {
@@ -1006,39 +956,14 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
             return;
         }
         long start = System.currentTimeMillis();
-        if (isPostgres(connection)) {
-            LOGGER.log(Level.FINE, "Preloading PostgreSQL metadata for schema {0}.", schema);
-            preloadColumnTypesPostgres(connection, schema);
-            preloadPrimaryKeysPostgres(connection, schema);
-            preloadForeignKeysPostgres(connection, schema);
-            preloadIndexesPostgres(connection, schema, tables);
-            initializeEmptyCachesForTables(tables);
-        } else {
-            DatabaseMetaData metaData = connection.getMetaData();
-            preloadColumnTypes(metaData, schema);
-            preloadPrimaryKeys(metaData, schema);
-            preloadForeignKeys(metaData, schema);
-            preloadExportedKeys(metaData, schema);
-            preloadIndexes(metaData, tables);
-        }
+        LOGGER.log(Level.FINE, "Preloading PostgreSQL metadata for schema {0}.", schema);
+        preloadColumnTypesPostgres(connection, schema);
+        preloadPrimaryKeysPostgres(connection, schema);
+        preloadForeignKeysPostgres(connection, schema);
+        preloadIndexesPostgres(connection, schema, tables);
+        initializeEmptyCachesForTables(tables);
         long elapsed = System.currentTimeMillis() - start;
         LOGGER.log(Level.FINE, "Metadata preload completed for schema {0} in {1} ms.", new Object[] {schema, elapsed});
-    }
-
-    private List<JdbcTableMetadata> loadSchemaTablesFallback(DatabaseMetaData metaData, String schema)
-            throws Exception {
-        if (schema == null || schema.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<JdbcTableMetadata> tables = new ArrayList<>();
-        try (ResultSet tablesRs =
-                metaData.getTables(null, jdbcDataStore.escapeNamePattern(metaData, schema), "%", null)) {
-            List<JdbcTableMetadata> baseTables = getListOfTablesFromResultSet(metaData, tablesRs);
-            if (baseTables != null) {
-                tables.addAll(baseTables);
-            }
-        }
-        return tables;
     }
 
     private List<String> loadAllSchemasPostgres(Connection connection) throws Exception {
@@ -1054,19 +979,6 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
             }
         }
         logSqlExecution(POSTGRES_SCHEMAS_SQL, queryStart);
-        return schemas;
-    }
-
-    private List<String> loadAllSchemasFallback(DatabaseMetaData metaData) throws Exception {
-        List<String> schemas = new ArrayList<>();
-        try (ResultSet rs = metaData.getSchemas()) {
-            while (rs.next()) {
-                String schema = rs.getString("TABLE_SCHEM");
-                if (schema != null && !schema.isEmpty()) {
-                    schemas.add(schema);
-                }
-            }
-        }
         return schemas;
     }
 
@@ -1821,18 +1733,14 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         if (types != null && types.containsKey(columnName)) {
             return types.get(columnName);
         }
-        if (isPostgres(connection)) {
-            preloadColumnTypesPostgres(connection, table.getSchema(), table.getName());
-            types = columnTypeCache.get(id);
-            if (types != null && types.containsKey(columnName)) {
-                return types.get(columnName);
-            }
+        preloadColumnTypesPostgres(connection, table.getSchema(), table.getName());
+        types = columnTypeCache.get(id);
+        if (types != null && types.containsKey(columnName)) {
+            return types.get(columnName);
         }
-        if (isPostgres(connection)) {
-            LOGGER.log(Level.FINER, "Falling back to JDBC metadata for column type {0}.{1}.{2}.", new Object[] {
-                table.getSchema(), table.getName(), columnName
-            });
-        }
+        LOGGER.log(Level.FINER, "Falling back to JDBC metadata for column type {0}.{1}.{2}.", new Object[] {
+            table.getSchema(), table.getName(), columnName
+        });
         return getColumnType(connection.getMetaData(), table, columnName);
     }
 

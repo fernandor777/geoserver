@@ -38,13 +38,14 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     private final Map<EntityKey, List<Relationship>> relationshipsByTarget = new HashMap<>();
 
     /**
-     * Builds a helper using the default JDBC metadata implementation as delegate.
+     * Builds a helper using a delegate selected for the provided connection.
      *
+     * @param connection JDBC connection used to pick the most appropriate delegate
      * @param relationships user provided relationships (may be {@code null}); inverse relations will be synthesized
      *     automatically
      */
-    public VirtualFkJdbcHelper(Relationships relationships) {
-        this(new DefaultJdbcHelper(), relationships);
+    public VirtualFkJdbcHelper(Connection connection, Relationships relationships) {
+        this(JdbcHelperFactory.forConnection(connection), relationships);
     }
 
     /**
@@ -65,7 +66,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
      * @param relationships user provided relationships (may be {@code null})
      */
     public VirtualFkJdbcHelper(JdbcHelper delegate, Relationships relationships) {
-        this.delegate = (delegate != null) ? delegate : new DefaultJdbcHelper();
+        this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
         this.relationships = (relationships != null) ? relationships : new Relationships();
         indexRelationships();
     }

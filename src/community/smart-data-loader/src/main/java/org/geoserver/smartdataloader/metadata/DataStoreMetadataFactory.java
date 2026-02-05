@@ -4,10 +4,10 @@
  */
 package org.geoserver.smartdataloader.metadata;
 
-import org.geoserver.smartdataloader.metadata.jdbc.DefaultJdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelper;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelperFactory;
 
 /** Factory class that builds a DataStoreMetadata based on the DataStoreMetadataConfig passed as argument. */
 public class DataStoreMetadataFactory {
@@ -20,7 +20,8 @@ public class DataStoreMetadataFactory {
             throws Exception {
         if (config.getType().equals(JdbcDataStoreMetadataConfig.TYPE)) {
             JdbcDataStoreMetadataConfig jdmp = (JdbcDataStoreMetadataConfig) config;
-            JdbcHelper helper = (jdbcHelper != null) ? jdbcHelper : new DefaultJdbcHelper();
+            JdbcHelper helper =
+                    (jdbcHelper != null) ? jdbcHelper : JdbcHelperFactory.forConnection(jdmp.getConnection());
             DataStoreMetadata store = new JdbcDataStoreMetadata(jdmp, helper);
             store.load();
             return store;

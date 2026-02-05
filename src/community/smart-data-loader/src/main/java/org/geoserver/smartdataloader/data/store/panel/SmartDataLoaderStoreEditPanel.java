@@ -42,6 +42,7 @@ import org.geoserver.smartdataloader.metadata.DataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataFactory;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelperFactory;
 import org.geoserver.smartdataloader.metadata.jdbc.VirtualFkJdbcHelper;
 import org.geoserver.web.data.store.StoreEditPanel;
 import org.geoserver.web.data.store.panel.TextParamPanel;
@@ -414,8 +415,9 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             DataStoreMetadataConfig config = new JdbcDataStoreMetadataConfig(
                     jdbcDataStore, ds.getConnectionParameters().get("passwd").toString());
             Relationships relationships = extractVirtualRelationships();
-            VirtualFkJdbcHelper helper = new VirtualFkJdbcHelper(relationships);
+            VirtualFkJdbcHelper helper;
             try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
+                helper = new VirtualFkJdbcHelper(JdbcHelperFactory.forConnection(connection), relationships);
                 helper.validateVirtualRelationships(connection, jdbcDataStore.getDatabaseSchema());
             }
             dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config, helper);
