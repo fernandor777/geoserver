@@ -2,7 +2,7 @@ package org.geoserver.smartdataloader.metadata.jdbc;
 
 import static org.junit.Assert.assertEquals;
 
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import java.util.List;
 import org.geoserver.smartdataloader.AbstractJDBCSmartDataLoaderTestSupport;
 import org.geoserver.smartdataloader.JDBCFixtureHelper;
@@ -20,8 +20,8 @@ public abstract class JDBCDataStoreMetadataTest extends AbstractJDBCSmartDataLoa
 
     @Test
     public void testJdbcDataStoreMetadataLoad() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
-        DataStoreMetadata dm = getDataStoreMetadata(metaData);
+        Connection connection = this.dataSource.getConnection();
+        DataStoreMetadata dm = getDataStoreMetadata(connection);
         List<EntityMetadata> entities = dm.getDataStoreEntities();
 
         List<RelationMetadata> relations = dm.getDataStoreRelations();
@@ -29,29 +29,29 @@ public abstract class JDBCDataStoreMetadataTest extends AbstractJDBCSmartDataLoa
         assertEquals(5, entities.size());
         assertEquals(8, relations.size());
 
-        metaData.getConnection().close();
+        connection.close();
     }
 
     @Test
     public void testMeteoObservationsEntityAttributes() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
+        Connection connection = this.dataSource.getConnection();
         JdbcHelper jdbcHelper = new DefaultJdbcHelper();
-        EntityMetadata entity = new JdbcTableMetadata(
-                metaData.getConnection(), null, ONLINE_DB_SCHEMA, "meteo_observations", jdbcHelper);
+        EntityMetadata entity =
+                new JdbcTableMetadata(connection, null, ONLINE_DB_SCHEMA, "meteo_observations", jdbcHelper);
 
         assertEquals(6, entity.getAttributes().size());
 
-        metaData.getConnection().close();
+        connection.close();
     }
 
     @Test
     public void testMeteoObservationsEntityRelations() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
+        Connection connection = this.dataSource.getConnection();
         JdbcHelper jdbcHelper = new DefaultJdbcHelper();
-        EntityMetadata entity = new JdbcTableMetadata(
-                metaData.getConnection(), null, ONLINE_DB_SCHEMA, "meteo_observations", jdbcHelper);
+        EntityMetadata entity =
+                new JdbcTableMetadata(connection, null, ONLINE_DB_SCHEMA, "meteo_observations", jdbcHelper);
         assertEquals(4, entity.getRelations().size());
 
-        metaData.getConnection().close();
+        connection.close();
     }
 }

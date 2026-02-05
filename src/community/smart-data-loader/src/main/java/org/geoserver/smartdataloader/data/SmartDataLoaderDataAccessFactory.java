@@ -337,7 +337,7 @@ public class SmartDataLoaderDataAccessFactory implements DataAccessFactory {
         }
         String allowedSchema = jdbcDataStore.getDatabaseSchema();
         try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
-            ((VirtualFkJdbcHelper) jdbcHelper).validateVirtualRelationships(connection.getMetaData(), allowedSchema);
+            ((VirtualFkJdbcHelper) jdbcHelper).validateVirtualRelationships(connection, allowedSchema);
         }
     }
 

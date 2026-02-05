@@ -2,7 +2,7 @@ package org.geoserver.smartdataloader.data.store;
 
 import static org.junit.Assert.assertEquals;
 
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import org.geoserver.smartdataloader.AbstractJDBCSmartDataLoaderTestSupport;
@@ -22,8 +22,8 @@ public abstract class JDBCExclusionsDomainModelVisitorTest extends AbstractJDBCS
 
     @Test
     public void testDomainModelVisitWithExclusions() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = this.dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_stations");
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);

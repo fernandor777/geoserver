@@ -4,7 +4,7 @@
  */
 package org.geoserver.smartdataloader.metadata.jdbc;
 
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -51,10 +51,10 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
      * Validates that all configured virtual relationships point to existing entities/columns and adhere to the optional
      * schema constraint. Throws {@link IllegalArgumentException} on any violation.
      */
-    public void validateVirtualRelationships(DatabaseMetaData metaData, String allowedSchema) throws Exception {
+    public void validateVirtualRelationships(Connection connection, String allowedSchema) throws Exception {
         for (Relationship relationship : relationships.getRelationships()) {
-            validateEndpoint(metaData, relationship.getSource(), relationship.getName(), "source", allowedSchema);
-            validateEndpoint(metaData, relationship.getTarget(), relationship.getName(), "target", allowedSchema);
+            validateEndpoint(connection, relationship.getSource(), relationship.getName(), "source", allowedSchema);
+            validateEndpoint(connection, relationship.getTarget(), relationship.getName(), "target", allowedSchema);
         }
     }
 
@@ -71,49 +71,47 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     }
 
     @Override
-    public List<JdbcTableMetadata> getSchemaTables(DatabaseMetaData metaData, String schema) throws Exception {
-        List<JdbcTableMetadata> tables = new ArrayList<>(getSchemaTablesCached(metaData, schema));
+    public List<JdbcTableMetadata> getSchemaTables(Connection connection, String schema) throws Exception {
+        List<JdbcTableMetadata> tables = new ArrayList<>(getSchemaTablesCached(connection, schema));
         for (Relationship relationship : relationships.getRelationships()) {
-            includeRelationshipEndpoint(metaData, tables, relationship.getSource());
-            includeRelationshipEndpoint(metaData, tables, relationship.getTarget());
+            includeRelationshipEndpoint(connection, tables, relationship.getSource());
+            includeRelationshipEndpoint(connection, tables, relationship.getTarget());
         }
         return tables;
     }
 
     @Override
-    public List<JdbcTableMetadata> getTables(DatabaseMetaData metaData) throws Exception {
-        List<JdbcTableMetadata> tables = delegate.getTables(metaData);
+    public List<JdbcTableMetadata> getTables(Connection connection) throws Exception {
+        List<JdbcTableMetadata> tables = delegate.getTables(connection);
         applyVirtualHelper(tables);
         return tables;
     }
 
     @Override
     public SortedMap<EntityMetadata, JdbcPrimaryKeyConstraintMetadata> getPrimaryKeyColumns(
-            DatabaseMetaData metaData, List<JdbcTableMetadata> tables) throws Exception {
-        return delegate.getPrimaryKeyColumns(metaData, tables);
+            Connection connection, List<JdbcTableMetadata> tables) throws Exception {
+        return delegate.getPrimaryKeyColumns(connection, tables);
     }
 
     @Override
     public SortedMap<JdbcTableMetadata, List<AttributeMetadata>> getColumns(
-            DatabaseMetaData metaData, List<JdbcTableMetadata> tables) throws Exception {
-        return delegate.getColumns(metaData, tables);
+            Connection connection, List<JdbcTableMetadata> tables) throws Exception {
+        return delegate.getColumns(connection, tables);
     }
 
     @Override
-    public JdbcPrimaryKeyConstraintMetadata getPrimaryKeyColumnsByTable(
-            DatabaseMetaData metaData, JdbcTableMetadata table) throws Exception {
-        return delegate.getPrimaryKeyColumnsByTable(metaData, table);
-    }
-
-    @Override
-    public List<AttributeMetadata> getColumnsByTable(DatabaseMetaData metaData, JdbcTableMetadata table)
+    public JdbcPrimaryKeyConstraintMetadata getPrimaryKeyColumnsByTable(Connection connection, JdbcTableMetadata table)
             throws Exception {
-        return delegate.getColumnsByTable(metaData, table);
+        return delegate.getPrimaryKeyColumnsByTable(connection, table);
     }
 
     @Override
-    public List<RelationMetadata> getRelationsByTable(DatabaseMetaData metaData, JdbcTableMetadata table)
-            throws Exception {
+    public List<AttributeMetadata> getColumnsByTable(Connection connection, JdbcTableMetadata table) throws Exception {
+        return delegate.getColumnsByTable(connection, table);
+    }
+
+    @Override
+    public List<RelationMetadata> getRelationsByTable(Connection connection, JdbcTableMetadata table) throws Exception {
         if (table != null) {
             table.setJdbcHelper(this);
         }
@@ -127,7 +125,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
                 AttributeMetadata sourceAttr =
                         findAttribute(table, relationship.getSource().getKey().getColumn());
                 JdbcTableMetadata targetTableMetadata = findTableMetadata(
-                        metaData,
+                        connection,
                         relationship.getTarget().getSchema(),
                         relationship.getTarget().getEntity());
                 AttributeMetadata targetAttr = findAttribute(
@@ -148,7 +146,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
                 AttributeMetadata targetAttr =
                         findAttribute(table, relationship.getTarget().getKey().getColumn());
                 JdbcTableMetadata sourceTableMetadata = findTableMetadata(
-                        metaData,
+                        connection,
                         relationship.getSource().getSchema(),
                         relationship.getSource().getEntity());
                 AttributeMetadata sourceAttr = findAttribute(
@@ -161,14 +159,13 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
                 }
             }
         }
-        relations.addAll(delegate.getRelationsByTable(metaData, table));
+        relations.addAll(delegate.getRelationsByTable(connection, table));
         return relations;
     }
 
     @Override
-    public boolean isForeignKey(DatabaseMetaData metaData, JdbcTableMetadata table, String columnName)
-            throws Exception {
-        return delegate.isForeignKey(metaData, table, columnName) || isVirtualForeignKey(table, columnName);
+    public boolean isForeignKey(Connection connection, JdbcTableMetadata table, String columnName) throws Exception {
+        return delegate.isForeignKey(connection, table, columnName) || isVirtualForeignKey(table, columnName);
     }
 
     private boolean isVirtualForeignKey(JdbcTableMetadata table, String columnName) {
@@ -184,7 +181,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     }
 
     private void validateEndpoint(
-            DatabaseMetaData metaData, EntityRef endpoint, String relationshipName, String role, String allowedSchema)
+            Connection connection, EntityRef endpoint, String relationshipName, String role, String allowedSchema)
             throws Exception {
         if (endpoint == null || endpoint.getKey() == null) {
             throw new IllegalArgumentException(
@@ -194,7 +191,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
             throw new IllegalArgumentException(
                     "Relationship '" + relationshipName + "' " + role + " key must reference a single column");
         }
-        JdbcTableMetadata table = findTableMetadata(metaData, endpoint.getSchema(), endpoint.getEntity());
+        JdbcTableMetadata table = findTableMetadata(connection, endpoint.getSchema(), endpoint.getEntity());
         if (table == null) {
             throw new IllegalArgumentException("Relationship '" + relationshipName + "' references missing " + role
                     + " entity '" + endpoint.getEntity() + "'");
@@ -214,40 +211,39 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
     }
 
     @Override
-    public boolean isPrimaryKey(DatabaseMetaData metaData, JdbcTableMetadata table, String columnName)
-            throws Exception {
-        return delegate.isPrimaryKey(metaData, table, columnName);
+    public boolean isPrimaryKey(Connection connection, JdbcTableMetadata table, String columnName) throws Exception {
+        return delegate.isPrimaryKey(connection, table, columnName);
     }
 
     @Override
-    public AttributeMetadata getColumnFromTable(DatabaseMetaData metaData, JdbcTableMetadata table, String columnName)
+    public AttributeMetadata getColumnFromTable(Connection connection, JdbcTableMetadata table, String columnName)
             throws Exception {
-        return delegate.getColumnFromTable(metaData, table, columnName);
+        return delegate.getColumnFromTable(connection, table, columnName);
     }
 
     @Override
     public SortedMap<String, Collection<String>> getIndexColumns(
-            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, boolean unique, boolean approximate)
+            Connection connection, List<JdbcTableMetadata> tables, boolean unique, boolean approximate)
             throws Exception {
-        return delegate.getIndexColumns(metaData, tables, unique, approximate);
+        return delegate.getIndexColumns(connection, tables, unique, approximate);
     }
 
     @Override
     public SortedMap<String, Collection<String>> getIndexesByTable(
-            DatabaseMetaData metaData, JdbcTableMetadata table, boolean unique, boolean approximate) throws Exception {
-        return delegate.getIndexesByTable(metaData, table, unique, approximate);
+            Connection connection, JdbcTableMetadata table, boolean unique, boolean approximate) throws Exception {
+        return delegate.getIndexesByTable(connection, table, unique, approximate);
     }
 
     @Override
     public SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> getForeignKeys(
-            DatabaseMetaData metaData, List<JdbcTableMetadata> tables) throws Exception {
-        return delegate.getForeignKeys(metaData, tables);
+            Connection connection, List<JdbcTableMetadata> tables) throws Exception {
+        return delegate.getForeignKeys(connection, tables);
     }
 
     @Override
     public SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> getForeignKeysByTable(
-            DatabaseMetaData metaData, JdbcTableMetadata table) throws Exception {
-        return delegate.getForeignKeysByTable(metaData, table);
+            Connection connection, JdbcTableMetadata table) throws Exception {
+        return delegate.getForeignKeysByTable(connection, table);
     }
 
     @Override
@@ -274,8 +270,8 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
 
     @Override
     public SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>>
-            getInversedForeignKeysByTable(DatabaseMetaData metaData, JdbcTableMetadata table) throws Exception {
-        return delegate.getInversedForeignKeysByTable(metaData, table);
+            getInversedForeignKeysByTable(Connection connection, JdbcTableMetadata table) throws Exception {
+        return delegate.getInversedForeignKeysByTable(connection, table);
     }
 
     private void applyVirtualHelper(List<JdbcTableMetadata> tables) {
@@ -289,8 +285,8 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
         }
     }
 
-    private void includeRelationshipEndpoint(
-            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, EntityRef endpoint) throws Exception {
+    private void includeRelationshipEndpoint(Connection connection, List<JdbcTableMetadata> tables, EntityRef endpoint)
+            throws Exception {
         if (endpoint == null || endpoint.getEntity() == null) {
             return;
         }
@@ -300,18 +296,18 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
         if (alreadyPresent) {
             return;
         }
-        JdbcTableMetadata tableMetadata = findTableMetadata(metaData, endpoint.getSchema(), endpoint.getEntity());
+        JdbcTableMetadata tableMetadata = findTableMetadata(connection, endpoint.getSchema(), endpoint.getEntity());
         if (tableMetadata != null) {
             tables.add(tableMetadata);
         }
     }
 
-    private JdbcTableMetadata findTableMetadata(DatabaseMetaData metaData, String schema, String tableName)
+    private JdbcTableMetadata findTableMetadata(Connection connection, String schema, String tableName)
             throws Exception {
         if (tableName == null) {
             return null;
         }
-        List<JdbcTableMetadata> schemaTables = getSchemaTablesCached(metaData, schema);
+        List<JdbcTableMetadata> schemaTables = getSchemaTablesCached(connection, schema);
         if (schemaTables == null) {
             return null;
         }
@@ -323,11 +319,11 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
         return null;
     }
 
-    private List<JdbcTableMetadata> getSchemaTablesCached(DatabaseMetaData metaData, String schema) throws Exception {
+    private List<JdbcTableMetadata> getSchemaTablesCached(Connection connection, String schema) throws Exception {
         SchemaKey key = new SchemaKey(schema);
         List<JdbcTableMetadata> cached = schemaTablesCache.get(key);
         if (cached == null) {
-            List<JdbcTableMetadata> delegateTables = delegate.getSchemaTables(metaData, schema);
+            List<JdbcTableMetadata> delegateTables = delegate.getSchemaTables(connection, schema);
             cached = (delegateTables != null) ? delegateTables : new ArrayList<>();
             applyVirtualHelper(cached);
             schemaTablesCache.put(key, cached);

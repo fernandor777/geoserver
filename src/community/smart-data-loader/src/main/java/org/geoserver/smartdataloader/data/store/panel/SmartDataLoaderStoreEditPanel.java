@@ -416,7 +416,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             Relationships relationships = extractVirtualRelationships();
             VirtualFkJdbcHelper helper = new VirtualFkJdbcHelper(relationships);
             try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
-                helper.validateVirtualRelationships(connection.getMetaData(), jdbcDataStore.getDatabaseSchema());
+                helper.validateVirtualRelationships(connection, jdbcDataStore.getDatabaseSchema());
             }
             dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config, helper);
         } catch (RuntimeException e) {

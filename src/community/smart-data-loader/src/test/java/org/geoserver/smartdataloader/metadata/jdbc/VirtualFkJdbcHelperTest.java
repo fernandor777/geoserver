@@ -7,7 +7,7 @@ package org.geoserver.smartdataloader.metadata.jdbc;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -150,7 +150,7 @@ public class VirtualFkJdbcHelperTest {
         }
 
         @Override
-        public List<JdbcTableMetadata> getSchemaTables(DatabaseMetaData metaData, String schema) {
+        public List<JdbcTableMetadata> getSchemaTables(Connection connection, String schema) {
             List<JdbcTableMetadata> filtered = new ArrayList<>();
             for (JdbcTableMetadata table : tables) {
                 if (table != null && (schema == null || schema.equals(table.getSchema()))) {
@@ -161,75 +161,74 @@ public class VirtualFkJdbcHelperTest {
         }
 
         @Override
-        public List<JdbcTableMetadata> getTables(DatabaseMetaData metaData) {
+        public List<JdbcTableMetadata> getTables(Connection connection) {
             return tables;
         }
 
         @Override
         public SortedMap<EntityMetadata, JdbcPrimaryKeyConstraintMetadata> getPrimaryKeyColumns(
-                DatabaseMetaData metaData, List<JdbcTableMetadata> tables) {
+                Connection connection, List<JdbcTableMetadata> tables) {
             return new TreeMap<>();
         }
 
         @Override
         public SortedMap<JdbcTableMetadata, List<AttributeMetadata>> getColumns(
-                DatabaseMetaData metaData, List<JdbcTableMetadata> tables) {
+                Connection connection, List<JdbcTableMetadata> tables) {
             return new TreeMap<>();
         }
 
         @Override
         public JdbcPrimaryKeyConstraintMetadata getPrimaryKeyColumnsByTable(
-                DatabaseMetaData metaData, JdbcTableMetadata table) {
+                Connection connection, JdbcTableMetadata table) {
             return null;
         }
 
         @Override
-        public List<AttributeMetadata> getColumnsByTable(DatabaseMetaData metaData, JdbcTableMetadata table) {
+        public List<AttributeMetadata> getColumnsByTable(Connection connection, JdbcTableMetadata table) {
             return Collections.emptyList();
         }
 
         @Override
-        public List<RelationMetadata> getRelationsByTable(DatabaseMetaData metaData, JdbcTableMetadata table) {
+        public List<RelationMetadata> getRelationsByTable(Connection connection, JdbcTableMetadata table) {
             return Collections.emptyList();
         }
 
         @Override
-        public boolean isForeignKey(DatabaseMetaData metaData, JdbcTableMetadata table, String columnName) {
+        public boolean isForeignKey(Connection connection, JdbcTableMetadata table, String columnName) {
             return false;
         }
 
         @Override
-        public boolean isPrimaryKey(DatabaseMetaData metaData, JdbcTableMetadata table, String columnName) {
+        public boolean isPrimaryKey(Connection connection, JdbcTableMetadata table, String columnName) {
             return false;
         }
 
         @Override
-        public AttributeMetadata getColumnFromTable(
-                DatabaseMetaData metaData, JdbcTableMetadata table, String columnName) {
+        public AttributeMetadata getColumnFromTable(Connection connection, JdbcTableMetadata table, String columnName) {
             return null;
         }
 
         @Override
         public SortedMap<String, Collection<String>> getIndexColumns(
-                DatabaseMetaData metaData, List<JdbcTableMetadata> tables, boolean unique, boolean approximate) {
+                Connection connection, List<JdbcTableMetadata> tables, boolean unique, boolean approximate) {
             return new TreeMap<>();
         }
 
         @Override
         public SortedMap<String, Collection<String>> getIndexesByTable(
-                DatabaseMetaData metaData, JdbcTableMetadata table, boolean unique, boolean approximate) {
+                Connection connection, JdbcTableMetadata table, boolean unique, boolean approximate) {
             return new TreeMap<>();
         }
 
         @Override
         public SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> getForeignKeys(
-                DatabaseMetaData metaData, List<JdbcTableMetadata> tables) {
+                Connection connection, List<JdbcTableMetadata> tables) {
             return new TreeMap<>();
         }
 
         @Override
         public SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>>
-                getForeignKeysByTable(DatabaseMetaData metaData, JdbcTableMetadata table) {
+                getForeignKeysByTable(Connection connection, JdbcTableMetadata table) {
             return new TreeMap<>();
         }
 
@@ -257,7 +256,7 @@ public class VirtualFkJdbcHelperTest {
 
         @Override
         public SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>>
-                getInversedForeignKeysByTable(DatabaseMetaData metaData, JdbcTableMetadata table) {
+                getInversedForeignKeysByTable(Connection connection, JdbcTableMetadata table) {
             return new TreeMap<>();
         }
     }

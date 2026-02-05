@@ -4,7 +4,7 @@
  */
 package org.geoserver.smartdataloader.domain;
 
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import org.geoserver.smartdataloader.AbstractJDBCSmartDataLoaderTestSupport;
 import org.geoserver.smartdataloader.JDBCFixtureHelper;
 import org.geoserver.smartdataloader.domain.entities.DomainEntity;
@@ -22,8 +22,8 @@ public abstract class DomainModelBuilderCyclicTest extends AbstractJDBCSmartData
 
     @Test
     public void testDomainModelBuilderWithStationsAsRoot() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = this.dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_stations");
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);

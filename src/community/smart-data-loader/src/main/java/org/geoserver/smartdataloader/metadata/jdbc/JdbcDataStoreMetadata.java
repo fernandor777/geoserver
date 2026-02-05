@@ -30,7 +30,7 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
         // load entities
         entities = new ArrayList<>();
         List<JdbcTableMetadata> tableList =
-                jdbcHelper.getSchemaTables(jdbcConfig.getConnection().getMetaData(), jdbcConfig.getSchema());
+                jdbcHelper.getSchemaTables(jdbcConfig.getConnection(), jdbcConfig.getSchema());
         entities.addAll(tableList);
         // load attributes and relations for each entity
         relations = new ArrayList<>();
@@ -38,15 +38,13 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
         while (iTables.hasNext()) {
             JdbcTableMetadata jTable = iTables.next();
             // load attributes
-            List<AttributeMetadata> attributes =
-                    jdbcHelper.getColumnsByTable(jdbcConfig.getConnection().getMetaData(), jTable);
+            List<AttributeMetadata> attributes = jdbcHelper.getColumnsByTable(jdbcConfig.getConnection(), jTable);
             attributes.forEach(attributeMetadata -> {
                 jTable.addAttribute(attributeMetadata);
             });
             jTable.setAttributesLoaded(true);
             // load relations
-            List<RelationMetadata> tableRelations =
-                    jdbcHelper.getRelationsByTable(jdbcConfig.getConnection().getMetaData(), jTable);
+            List<RelationMetadata> tableRelations = jdbcHelper.getRelationsByTable(jdbcConfig.getConnection(), jTable);
             tableRelations.forEach(relationMetadata -> {
                 jTable.addRelation(relationMetadata);
                 relations.add(relationMetadata);

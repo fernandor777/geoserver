@@ -7,7 +7,7 @@ package org.geoserver.smartdataloader.visitors;
 import static org.junit.Assert.assertTrue;
 
 import java.io.InputStream;
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import java.util.HashMap;
 import java.util.Map;
 import javax.xml.parsers.DocumentBuilder;
@@ -36,8 +36,8 @@ public abstract class JDBCOverrideAppSchemaVisitorTest extends JDBCAppSchemaVisi
 
     @Test
     public void testStationsRootEntityOverridePk() throws Exception {
-        DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_stations");
         dmc.setEntitiesPrefix(entityPrefix);
@@ -76,8 +76,8 @@ public abstract class JDBCOverrideAppSchemaVisitorTest extends JDBCAppSchemaVisi
 
     @Test
     public void testStationsRootEntityOverridePkOnly() throws Exception {
-        DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_stations");
         dmc.setEntitiesPrefix(entityPrefix);

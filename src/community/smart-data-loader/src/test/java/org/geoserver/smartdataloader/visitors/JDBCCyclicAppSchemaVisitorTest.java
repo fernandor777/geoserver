@@ -7,7 +7,7 @@ package org.geoserver.smartdataloader.visitors;
 import static org.junit.Assert.assertTrue;
 
 import java.io.InputStream;
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.custommonkey.xmlunit.Diff;
@@ -32,8 +32,8 @@ public abstract class JDBCCyclicAppSchemaVisitorTest extends AbstractJDBCSmartDa
 
     @Test
     public void testStationsRootEntity() throws Exception {
-        DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_stations");
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);

@@ -9,7 +9,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import javax.sql.DataSource;
 import org.geoserver.smartdataloader.AbstractJDBCSmartDataLoaderTestSupport;
 import org.geoserver.smartdataloader.JDBCFixtureHelper;
@@ -70,10 +69,10 @@ public class PostGisVirtualFkCrossSchemaAppSchemaVisitorTest extends AbstractJDB
     }
 
     @Override
-    protected DataStoreMetadata getDataStoreMetadata(DatabaseMetaData metaData) throws Exception {
+    protected DataStoreMetadata getDataStoreMetadata(Connection connection) throws Exception {
         JdbcHelper helper = new VirtualFkJdbcHelper(new DefaultJdbcHelper(), VIRTUAL_RELATIONSHIPS);
         DataStoreMetadataConfig config =
-                new JdbcDataStoreMetadataConfig(ONLINE_DB_SCHEMA, metaData.getConnection(), null, ONLINE_DB_SCHEMA);
+                new JdbcDataStoreMetadataConfig(ONLINE_DB_SCHEMA, connection, null, ONLINE_DB_SCHEMA);
         return new DataStoreMetadataFactory().getDataStoreMetadata(config, helper);
     }
 
@@ -82,8 +81,7 @@ public class PostGisVirtualFkCrossSchemaAppSchemaVisitorTest extends AbstractJDB
         DataSource source = this.dataSource;
         Connection connection = source.getConnection();
         try {
-            DatabaseMetaData metaData = connection.getMetaData();
-            DataStoreMetadata dsm = getDataStoreMetadata(metaData);
+            DataStoreMetadata dsm = getDataStoreMetadata(connection);
             DomainModelConfig config = new DomainModelConfig();
             config.setRootEntityName("meteo_stations");
             DomainModelBuilder builder = new DomainModelBuilder(dsm, config);

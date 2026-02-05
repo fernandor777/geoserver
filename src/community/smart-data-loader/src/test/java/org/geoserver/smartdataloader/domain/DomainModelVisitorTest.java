@@ -4,7 +4,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import org.apache.commons.io.IOUtils;
 import org.geoserver.smartdataloader.AbstractJDBCSmartDataLoaderTestSupport;
 import org.geoserver.smartdataloader.JDBCFixtureHelper;
@@ -22,8 +22,8 @@ public abstract class DomainModelVisitorTest extends AbstractJDBCSmartDataLoader
 
     @Test
     public void testDomainModelVisitWithStations() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = this.dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_stations");
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);
@@ -39,8 +39,8 @@ public abstract class DomainModelVisitorTest extends AbstractJDBCSmartDataLoader
 
     @Test
     public void testDomainModelVisitWithObservations() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = this.dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_observations");
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);
