@@ -126,6 +126,75 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "AND i.indisunique = true "
                     + "AND c.relkind IN ('r','p','v','m','f') "
                     + "ORDER BY c.relname, ic.relname, x.ordinality";
+    private static final String POSTGRES_TABLES_BY_SCHEMAS_SQL =
+            "SELECT n.nspname AS schema_name, c.relname AS table_name, c.relkind AS relkind "
+                    + "FROM pg_class c "
+                    + "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    + "WHERE n.nspname IN (%s) "
+                    + "AND c.relkind IN ('r','p','v','m','f') "
+                    + "ORDER BY n.nspname, c.relname";
+    private static final String POSTGRES_COLUMNS_BY_SCHEMAS_SQL =
+            "SELECT n.nspname AS schema_name, c.relname AS table_name, "
+                    + "a.attnum AS ordinal_position, a.attname AS column_name, "
+                    + "format_type(a.atttypid, a.atttypmod) AS data_type "
+                    + "FROM pg_attribute a "
+                    + "JOIN pg_class c ON c.oid = a.attrelid "
+                    + "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    + "WHERE n.nspname IN (%s) "
+                    + "AND c.relkind IN ('r','p','v','m','f') "
+                    + "AND a.attnum > 0 "
+                    + "AND NOT a.attisdropped "
+                    + "ORDER BY n.nspname, c.relname, a.attnum";
+    private static final String POSTGRES_PRIMARY_KEYS_BY_SCHEMAS_SQL =
+            "SELECT n.nspname AS schema_name, c.relname AS table_name, con.conname AS pk_name, "
+                    + "a.attname AS column_name, k.ordinality AS ordinal_position "
+                    + "FROM pg_constraint con "
+                    + "JOIN pg_class c ON c.oid = con.conrelid "
+                    + "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    + "JOIN unnest(con.conkey) WITH ORDINALITY AS k(attnum, ordinality) ON true "
+                    + "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum "
+                    + "WHERE con.contype = 'p' "
+                    + "AND n.nspname IN (%s) "
+                    + "ORDER BY n.nspname, c.relname, k.ordinality";
+    private static final String POSTGRES_FOREIGN_KEYS_BY_SCHEMAS_SQL =
+            "SELECT nsp.nspname AS table_schema, rel.relname AS table_name, con.conname AS fk_name, "
+                    + "fnsp.nspname AS referenced_schema, frel.relname AS referenced_table, "
+                    + "pk.conname AS pk_name, "
+                    + "array_agg(att.attname ORDER BY u.ordinality) AS fk_columns, "
+                    + "array_agg(fatt.attname ORDER BY u.ordinality) AS referenced_columns "
+                    + "FROM pg_constraint con "
+                    + "JOIN pg_class rel ON rel.oid = con.conrelid "
+                    + "JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace "
+                    + "JOIN pg_class frel ON frel.oid = con.confrelid "
+                    + "JOIN pg_namespace fnsp ON fnsp.oid = frel.relnamespace "
+                    + "LEFT JOIN pg_constraint pk ON pk.conrelid = con.confrelid AND pk.contype = 'p' "
+                    + "JOIN unnest(con.conkey) WITH ORDINALITY AS u(attnum, ordinality) ON true "
+                    + "JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = u.attnum "
+                    + "JOIN unnest(con.confkey) WITH ORDINALITY AS fu(attnum, ordinality) "
+                    + "  ON fu.ordinality = u.ordinality "
+                    + "JOIN pg_attribute fatt ON fatt.attrelid = frel.oid AND fatt.attnum = fu.attnum "
+                    + "WHERE con.contype = 'f' "
+                    + "AND (nsp.nspname IN (%s) OR fnsp.nspname IN (%s)) "
+                    + "GROUP BY nsp.nspname, rel.relname, con.conname, fnsp.nspname, frel.relname, con.oid "
+                    + "ORDER BY rel.relname, con.conname";
+    private static final String POSTGRES_UNIQUE_INDEXES_BY_SCHEMAS_SQL =
+            "SELECT n.nspname AS schema_name, c.relname AS table_name, ic.relname AS index_name, "
+                    + "a.attname AS column_name, x.ordinality AS ordinal_position "
+                    + "FROM pg_class c "
+                    + "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    + "JOIN pg_index i ON i.indrelid = c.oid "
+                    + "JOIN pg_class ic ON ic.oid = i.indexrelid "
+                    + "JOIN unnest(i.indkey) WITH ORDINALITY AS x(attnum, ordinality) ON true "
+                    + "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = x.attnum "
+                    + "WHERE n.nspname IN (%s) "
+                    + "AND i.indisunique = true "
+                    + "AND c.relkind IN ('r','p','v','m','f') "
+                    + "ORDER BY n.nspname, c.relname, ic.relname, x.ordinality";
+    private static final String POSTGRES_SCHEMAS_SQL = "SELECT nspname AS schema_name "
+            + "FROM pg_namespace "
+            + "WHERE nspname NOT LIKE 'pg_%' "
+            + "AND nspname <> 'information_schema' "
+            + "ORDER BY nspname";
 
     private final JDBCDataStore jdbcDataStore;
     private final Map<TableId, List<AttributeMetadata>> columnsCache = new HashMap<>();
@@ -315,9 +384,68 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 tables.addAll(baseTables);
             }
         }
+        LOGGER.log(Level.FINE, "Preloading metadata for schema {0}.", schema);
         preloadSchemaMetadata(connection, schema, tables);
         discoverCrossSchemaTables(metaData, tables);
         return tables;
+    }
+
+    /**
+     * Preloads metadata for multiple schemas using bulk PostgreSQL catalog queries when available.
+     *
+     * @param connection JDBC connection
+     * @param schemas list of schema names to preload
+     */
+    public void preloadSchemaMetadata(Connection connection, List<String> schemas) throws Exception {
+        if (connection == null || schemas == null || schemas.isEmpty()) {
+            return;
+        }
+        if (!isPostgres(connection)) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            for (String schema : schemas) {
+                if (schema == null || schema.isEmpty()) {
+                    continue;
+                }
+                List<JdbcTableMetadata> tables = loadSchemaTablesFallback(metaData, schema);
+                preloadSchemaMetadata(connection, schema, tables);
+            }
+            return;
+        }
+        List<String> normalizedSchemas = new ArrayList<>();
+        for (String schema : schemas) {
+            if (schema != null && !schema.isEmpty()) {
+                normalizedSchemas.add(schema);
+            }
+        }
+        if (normalizedSchemas.isEmpty()) {
+            return;
+        }
+        String inClause = buildInClause(normalizedSchemas.size());
+        long start = System.currentTimeMillis();
+        preloadColumnTypesPostgres(connection, normalizedSchemas, inClause);
+        preloadPrimaryKeysPostgres(connection, normalizedSchemas, inClause);
+        Set<String> schemaSet = new HashSet<>(normalizedSchemas);
+        preloadForeignKeysPostgres(connection, normalizedSchemas, schemaSet, inClause);
+        preloadIndexesPostgres(connection, normalizedSchemas, inClause);
+        preloadTablesPostgres(connection, normalizedSchemas, inClause);
+        LOGGER.log(Level.FINE, "Metadata preload completed for {0} schemas in {1} ms.", new Object[] {
+            normalizedSchemas.size(), System.currentTimeMillis() - start
+        });
+    }
+
+    /**
+     * Preloads metadata for all non-system schemas available in the database.
+     *
+     * @param connection JDBC connection
+     */
+    public void preloadAllSchemas(Connection connection) throws Exception {
+        if (connection == null) {
+            return;
+        }
+        List<String> schemas = isPostgres(connection)
+                ? loadAllSchemasPostgres(connection)
+                : loadAllSchemasFallback(connection.getMetaData());
+        preloadSchemaMetadata(connection, schemas);
     }
 
     @Override
@@ -897,6 +1025,51 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         LOGGER.log(Level.FINE, "Metadata preload completed for schema {0} in {1} ms.", new Object[] {schema, elapsed});
     }
 
+    private List<JdbcTableMetadata> loadSchemaTablesFallback(DatabaseMetaData metaData, String schema)
+            throws Exception {
+        if (schema == null || schema.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<JdbcTableMetadata> tables = new ArrayList<>();
+        try (ResultSet tablesRs =
+                metaData.getTables(null, jdbcDataStore.escapeNamePattern(metaData, schema), "%", null)) {
+            List<JdbcTableMetadata> baseTables = getListOfTablesFromResultSet(metaData, tablesRs);
+            if (baseTables != null) {
+                tables.addAll(baseTables);
+            }
+        }
+        return tables;
+    }
+
+    private List<String> loadAllSchemasPostgres(Connection connection) throws Exception {
+        List<String> schemas = new ArrayList<>();
+        long queryStart = System.currentTimeMillis();
+        try (PreparedStatement statement = connection.prepareStatement(POSTGRES_SCHEMAS_SQL);
+                ResultSet rs = statement.executeQuery()) {
+            while (rs.next()) {
+                String schema = rs.getString("schema_name");
+                if (schema != null && !schema.isEmpty()) {
+                    schemas.add(schema);
+                }
+            }
+        }
+        logSqlExecution(POSTGRES_SCHEMAS_SQL, queryStart);
+        return schemas;
+    }
+
+    private List<String> loadAllSchemasFallback(DatabaseMetaData metaData) throws Exception {
+        List<String> schemas = new ArrayList<>();
+        try (ResultSet rs = metaData.getSchemas()) {
+            while (rs.next()) {
+                String schema = rs.getString("TABLE_SCHEM");
+                if (schema != null && !schema.isEmpty()) {
+                    schemas.add(schema);
+                }
+            }
+        }
+        return schemas;
+    }
+
     private void initializeEmptyCachesForTables(List<JdbcTableMetadata> tables) {
         if (tables == null) {
             return;
@@ -922,6 +1095,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         }
         List<JdbcTableMetadata> tables = new ArrayList<>();
         String catalog = catalogOrNull(connection);
+        long queryStart = System.currentTimeMillis();
         long start = System.currentTimeMillis();
         try (PreparedStatement statement = connection.prepareStatement(POSTGRES_TABLES_SQL)) {
             statement.setString(1, schema);
@@ -934,6 +1108,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 }
             }
         }
+        logSqlExecution(POSTGRES_TABLES_SQL, queryStart);
         LOGGER.log(Level.FINE, "Loaded {0} tables from PostgreSQL schema {1} in {2} ms.", new Object[] {
             tables.size(), schema, System.currentTimeMillis() - start
         });
@@ -943,6 +1118,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
     private List<JdbcTableMetadata> loadAllTablesPostgres(Connection connection) throws Exception {
         List<JdbcTableMetadata> tables = new ArrayList<>();
         String catalog = catalogOrNull(connection);
+        long queryStart = System.currentTimeMillis();
         long start = System.currentTimeMillis();
         try (PreparedStatement statement = connection.prepareStatement(POSTGRES_ALL_TABLES_SQL);
                 ResultSet rs = statement.executeQuery()) {
@@ -954,6 +1130,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 }
             }
         }
+        logSqlExecution(POSTGRES_ALL_TABLES_SQL, queryStart);
         LOGGER.log(Level.FINE, "Loaded {0} tables across all PostgreSQL schemas in {1} ms.", new Object[] {
             tables.size(), System.currentTimeMillis() - start
         });
@@ -1181,6 +1358,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
 
     private void preloadColumnTypesPostgres(Connection connection, String schema) throws Exception {
         String catalog = catalogOrNull(connection);
+        long queryStart = System.currentTimeMillis();
         long start = System.currentTimeMillis();
         int count = 0;
         try (PreparedStatement statement = connection.prepareStatement(POSTGRES_COLUMNS_SQL)) {
@@ -1201,6 +1379,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 }
             }
         }
+        logSqlExecution(POSTGRES_COLUMNS_SQL, queryStart);
         LOGGER.log(Level.FINE, "Loaded {0} columns for PostgreSQL schema {1} in {2} ms.", new Object[] {
             count, schema, System.currentTimeMillis() - start
         });
@@ -1216,6 +1395,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         if (existing != null && !existing.isEmpty()) {
             return;
         }
+        long queryStart = System.currentTimeMillis();
         try (PreparedStatement statement = connection.prepareStatement(POSTGRES_COLUMNS_BY_TABLE_SQL)) {
             statement.setString(1, schema);
             statement.setString(2, tableName);
@@ -1231,10 +1411,12 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 }
             }
         }
+        logSqlExecution(POSTGRES_COLUMNS_BY_TABLE_SQL, queryStart);
     }
 
     private void preloadPrimaryKeysPostgres(Connection connection, String schema) throws Exception {
         String catalog = catalogOrNull(connection);
+        long queryStart = System.currentTimeMillis();
         long start = System.currentTimeMillis();
         Map<TableId, PrimaryKeyBuilder> builders = new HashMap<>();
         try (PreparedStatement statement = connection.prepareStatement(POSTGRES_PRIMARY_KEYS_SQL)) {
@@ -1254,6 +1436,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 }
             }
         }
+        logSqlExecution(POSTGRES_PRIMARY_KEYS_SQL, queryStart);
         for (Map.Entry<TableId, PrimaryKeyBuilder> entry : builders.entrySet()) {
             TableId id = entry.getKey();
             PrimaryKeyBuilder builder = entry.getValue();
@@ -1270,6 +1453,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
 
     private void preloadForeignKeysPostgres(Connection connection, String schema) throws Exception {
         String catalog = catalogOrNull(connection);
+        long queryStart = System.currentTimeMillis();
         long start = System.currentTimeMillis();
         Map<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>> fkMultimaps =
                 new HashMap<>();
@@ -1329,6 +1513,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 }
             }
         }
+        logSqlExecution(POSTGRES_FOREIGN_KEYS_SQL, queryStart);
         for (Map.Entry<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>>
                 entry : fkMultimaps.entrySet()) {
             SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> fkMap =
@@ -1354,6 +1539,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
             return;
         }
         String catalog = catalogOrNull(connection);
+        long queryStart = System.currentTimeMillis();
         long start = System.currentTimeMillis();
         Map<TableId, SortedSetMultimap<String, String>> indexMultimaps = new HashMap<>();
         try (PreparedStatement statement = connection.prepareStatement(POSTGRES_UNIQUE_INDEXES_SQL)) {
@@ -1376,6 +1562,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 }
             }
         }
+        logSqlExecution(POSTGRES_UNIQUE_INDEXES_SQL, queryStart);
         for (Map.Entry<TableId, SortedSetMultimap<String, String>> entry : indexMultimaps.entrySet()) {
             SortedMap<String, Collection<String>> indexMap = new TreeMap<>();
             indexMap.putAll(entry.getValue().asMap());
@@ -1387,6 +1574,241 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         LOGGER.log(Level.FINE, "Loaded unique indexes for PostgreSQL schema {0} in {1} ms.", new Object[] {
             schema, System.currentTimeMillis() - start
         });
+    }
+
+    private void logSqlExecution(String sql, long startMs) {
+        long elapsed = System.currentTimeMillis() - startMs;
+        LOGGER.log(Level.FINE, "Executed SQL in {0} ms: {1}", new Object[] {elapsed, sql});
+    }
+
+    private String buildInClause(int size) {
+        if (size <= 0) {
+            throw new IllegalArgumentException("IN clause size must be > 0.");
+        }
+        StringBuilder sb = new StringBuilder(size * 3);
+        for (int i = 0; i < size; i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append("?");
+        }
+        return sb.toString();
+    }
+
+    private void bindSchemas(PreparedStatement statement, List<String> schemas, int offset) throws SQLException {
+        int index = offset;
+        for (String schema : schemas) {
+            statement.setString(index, schema);
+            index++;
+        }
+    }
+
+    private void preloadTablesPostgres(Connection connection, List<String> schemas, String inClause) throws Exception {
+        String catalog = catalogOrNull(connection);
+        String sql = String.format(POSTGRES_TABLES_BY_SCHEMAS_SQL, inClause);
+        long queryStart = System.currentTimeMillis();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            bindSchemas(statement, schemas, 1);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    String schemaName = rs.getString("schema_name");
+                    String tableName = rs.getString("table_name");
+                    if (tableName == null) {
+                        continue;
+                    }
+                    TableId id = tableId(catalog, schemaName, tableName);
+                    JdbcTableMetadata table = new JdbcTableMetadata(connection, catalog, schemaName, tableName, this);
+                    primaryKeyCache.putIfAbsent(id, null);
+                    primaryKeyColumnsCache.putIfAbsent(id, new HashSet<>());
+                    foreignKeyColumnsCache.putIfAbsent(id, new HashSet<>());
+                    foreignKeysCache.putIfAbsent(id, null);
+                    exportedKeysCache.putIfAbsent(id, null);
+                    indexCache.putIfAbsent(new IndexKey(id, true, true), new TreeMap<>());
+                    indexCache.putIfAbsent(new IndexKey(id, true, false), new TreeMap<>());
+                    table.setJdbcHelper(this);
+                }
+            }
+        }
+        logSqlExecution(sql, queryStart);
+    }
+
+    private void preloadColumnTypesPostgres(Connection connection, List<String> schemas, String inClause)
+            throws Exception {
+        String catalog = catalogOrNull(connection);
+        String sql = String.format(POSTGRES_COLUMNS_BY_SCHEMAS_SQL, inClause);
+        long queryStart = System.currentTimeMillis();
+        int count = 0;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            bindSchemas(statement, schemas, 1);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    String schemaName = rs.getString("schema_name");
+                    String tableName = rs.getString("table_name");
+                    String columnName = rs.getString("column_name");
+                    String dataType = rs.getString("data_type");
+                    if (tableName == null || columnName == null) {
+                        continue;
+                    }
+                    TableId id = tableId(catalog, schemaName, tableName);
+                    Map<String, String> columnTypes = columnTypeCache.computeIfAbsent(id, key -> new LinkedHashMap<>());
+                    columnTypes.put(columnName, dataType);
+                    count++;
+                }
+            }
+        }
+        logSqlExecution(sql, queryStart);
+        LOGGER.log(Level.FINE, "Loaded {0} columns for {1} schemas in {2} ms.", new Object[] {
+            count, schemas.size(), System.currentTimeMillis() - queryStart
+        });
+    }
+
+    private void preloadPrimaryKeysPostgres(Connection connection, List<String> schemas, String inClause)
+            throws Exception {
+        String catalog = catalogOrNull(connection);
+        String sql = String.format(POSTGRES_PRIMARY_KEYS_BY_SCHEMAS_SQL, inClause);
+        long queryStart = System.currentTimeMillis();
+        Map<TableId, PrimaryKeyBuilder> builders = new HashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            bindSchemas(statement, schemas, 1);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    String schemaName = rs.getString("schema_name");
+                    String tableName = rs.getString("table_name");
+                    String pkName = rs.getString("pk_name");
+                    String columnName = rs.getString("column_name");
+                    if (tableName == null || columnName == null) {
+                        continue;
+                    }
+                    TableId id = tableId(catalog, schemaName, tableName);
+                    PrimaryKeyBuilder builder = builders.computeIfAbsent(id, key -> new PrimaryKeyBuilder(pkName));
+                    builder.addColumn(columnName);
+                }
+            }
+        }
+        logSqlExecution(sql, queryStart);
+        for (Map.Entry<TableId, PrimaryKeyBuilder> entry : builders.entrySet()) {
+            TableId id = entry.getKey();
+            PrimaryKeyBuilder builder = entry.getValue();
+            JdbcTableMetadata pkTable = new JdbcTableMetadata(connection, id.catalog, id.schema, id.name, this);
+            JdbcPrimaryKeyConstraintMetadata primaryKey =
+                    new JdbcPrimaryKeyConstraintMetadata(pkTable, builder.name, builder.columns);
+            primaryKeyCache.put(id, primaryKey);
+            primaryKeyColumnsCache.put(id, new HashSet<>(builder.columns));
+        }
+    }
+
+    private void preloadForeignKeysPostgres(
+            Connection connection, List<String> schemas, Set<String> schemaSet, String inClause) throws Exception {
+        String catalog = catalogOrNull(connection);
+        String sql = String.format(POSTGRES_FOREIGN_KEYS_BY_SCHEMAS_SQL, inClause, inClause);
+        long queryStart = System.currentTimeMillis();
+        Map<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>> fkMultimaps =
+                new HashMap<>();
+        Map<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>>
+                exportedMultimaps = new HashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            bindSchemas(statement, schemas, 1);
+            bindSchemas(statement, schemas, schemas.size() + 1);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    String fkSchema = rs.getString("table_schema");
+                    String fkTableName = rs.getString("table_name");
+                    String fkName = rs.getString("fk_name");
+                    String pkSchema = rs.getString("referenced_schema");
+                    String pkTableName = rs.getString("referenced_table");
+                    String pkName = rs.getString("pk_name");
+                    if (fkTableName == null || pkTableName == null) {
+                        continue;
+                    }
+                    String exportedName = (pkName != null && !pkName.isEmpty()) ? pkName : fkName;
+                    String[] fkColumns = readStringArray(rs, "fk_columns");
+                    String[] pkColumns = readStringArray(rs, "referenced_columns");
+                    int columnPairs = Math.min(fkColumns.length, pkColumns.length);
+                    JdbcTableMetadata fkTable = new JdbcTableMetadata(connection, catalog, fkSchema, fkTableName, this);
+                    JdbcTableMetadata pkTable = new JdbcTableMetadata(connection, catalog, pkSchema, pkTableName, this);
+                    JdbcForeignKeyConstraintMetadata fkConstraint =
+                            new JdbcForeignKeyConstraintMetadata(fkTable, fkName, pkTable);
+                    JdbcForeignKeyConstraintMetadata exportedConstraint =
+                            new JdbcForeignKeyConstraintMetadata(pkTable, exportedName, fkTable);
+                    for (int i = 0; i < columnPairs; i++) {
+                        String fkColumnName = fkColumns[i];
+                        String pkColumnName = pkColumns[i];
+                        String columnType = getCachedColumnType(connection, fkTable, fkColumnName);
+                        JdbcForeignKeyColumnMetadata fkColumn = new JdbcForeignKeyColumnMetadata(
+                                fkTable,
+                                fkColumnName,
+                                columnType,
+                                new JdbcColumnMetadata(pkTable, pkColumnName, columnType, false));
+                        if (schemaSet.contains(fkSchema)) {
+                            TableId fkId = tableId(catalog, fkSchema, fkTableName);
+                            SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>
+                                    fkMultimap = fkMultimaps.computeIfAbsent(fkId, key -> TreeMultimap.create());
+                            fkMultimap.put(fkConstraint, fkColumn);
+                            foreignKeyColumnsCache
+                                    .computeIfAbsent(fkId, key -> new HashSet<>())
+                                    .add(fkColumnName);
+                        }
+                        if (schemaSet.contains(pkSchema)) {
+                            TableId pkId = tableId(catalog, pkSchema, pkTableName);
+                            SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>
+                                    pkMultimap = exportedMultimaps.computeIfAbsent(pkId, key -> TreeMultimap.create());
+                            pkMultimap.put(exportedConstraint, fkColumn);
+                        }
+                    }
+                }
+            }
+        }
+        logSqlExecution(sql, queryStart);
+        for (Map.Entry<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>>
+                entry : fkMultimaps.entrySet()) {
+            SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> fkMap =
+                    new TreeMap<>();
+            fkMap.putAll(entry.getValue().asMap());
+            foreignKeysCache.put(entry.getKey(), fkMap);
+        }
+        for (Map.Entry<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>>
+                entry : exportedMultimaps.entrySet()) {
+            SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> inversedFkMap =
+                    new TreeMap<>();
+            inversedFkMap.putAll(entry.getValue().asMap());
+            exportedKeysCache.put(entry.getKey(), inversedFkMap);
+        }
+    }
+
+    private void preloadIndexesPostgres(Connection connection, List<String> schemas, String inClause) throws Exception {
+        String catalog = catalogOrNull(connection);
+        String sql = String.format(POSTGRES_UNIQUE_INDEXES_BY_SCHEMAS_SQL, inClause);
+        long queryStart = System.currentTimeMillis();
+        Map<TableId, SortedSetMultimap<String, String>> indexMultimaps = new HashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            bindSchemas(statement, schemas, 1);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    String schemaName = rs.getString("schema_name");
+                    String tableName = rs.getString("table_name");
+                    String indexName = rs.getString("index_name");
+                    String columnName = rs.getString("column_name");
+                    if (tableName == null || indexName == null || columnName == null) {
+                        continue;
+                    }
+                    TableId id = tableId(catalog, schemaName, tableName);
+                    JdbcTableMetadata table = new JdbcTableMetadata(connection, catalog, schemaName, tableName, this);
+                    JdbcIndexConstraintMetadata indexConstraint = new JdbcIndexConstraintMetadata(table, indexName);
+                    SortedSetMultimap<String, String> multimap =
+                            indexMultimaps.computeIfAbsent(id, key -> TreeMultimap.create());
+                    multimap.put(indexConstraint.toString(), columnName);
+                }
+            }
+        }
+        logSqlExecution(sql, queryStart);
+        for (Map.Entry<TableId, SortedSetMultimap<String, String>> entry : indexMultimaps.entrySet()) {
+            SortedMap<String, Collection<String>> indexMap = new TreeMap<>();
+            indexMap.putAll(entry.getValue().asMap());
+            IndexKey approxKey = new IndexKey(entry.getKey(), true, true);
+            IndexKey exactKey = new IndexKey(entry.getKey(), true, false);
+            indexCache.put(approxKey, indexMap);
+            indexCache.put(exactKey, indexMap);
+        }
     }
 
     private String getCachedColumnType(Connection connection, JdbcTableMetadata table, String columnName)
