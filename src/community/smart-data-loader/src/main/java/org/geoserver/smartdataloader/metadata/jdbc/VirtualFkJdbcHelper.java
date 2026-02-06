@@ -138,6 +138,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
                     RelationMetadata virtualRelation =
                             new VirtualRelationMetadata(cardinality, sourceAttr, targetAttr, relationship.getName());
                     relations.add(virtualRelation);
+                    table.addRelation(virtualRelation);
                 }
             }
         }
@@ -160,6 +161,7 @@ public class VirtualFkJdbcHelper implements JdbcHelper {
                     RelationMetadata inverseRelation = new VirtualRelationMetadata(
                             inverseCardinality, targetAttr, sourceAttr, relationship.getName());
                     relations.add(inverseRelation);
+                    table.addRelation(inverseRelation);
                 }
             }
         }
