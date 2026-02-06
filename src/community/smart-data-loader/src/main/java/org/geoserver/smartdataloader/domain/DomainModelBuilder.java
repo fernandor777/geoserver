@@ -273,9 +273,9 @@ public final class DomainModelBuilder {
             case "smallint":
             case "int2":
             case "int4":
+            case "integer":
                 return DomainAttributeType.INT;
             case "bigint":
-            case "integer":
             case "int8":
             case "bigserial":
                 return DomainAttributeType.INTEGER;
