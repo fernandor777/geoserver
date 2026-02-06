@@ -6,11 +6,11 @@ package org.geoserver.smartdataloader.domain;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 import org.geoserver.smartdataloader.domain.entities.DomainAttributeType;
 import org.geoserver.smartdataloader.domain.entities.DomainEntity;
 import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
@@ -179,13 +179,8 @@ public final class DomainModelBuilder {
     private DomainEntitySimpleAttribute buildDomainEntitySimpleAttribute(AttributeMetadata attributeMetadata) {
         DomainEntitySimpleAttribute domainAttribute = new DomainEntitySimpleAttribute();
         domainAttribute.setName(attributeMetadata.getName());
-        String attribType = attributeMetadata.getType().toLowerCase();
+        String attribType = normalizeTypeName(attributeMetadata.getType());
         domainAttribute.setIdentifier(attributeMetadata.isIdentifier());
-        // clean composed types to get only the type. ie. "public"."geometry" -> geometry
-        String[] composedAttribType = attribType.split(Pattern.quote("."));
-        if (composedAttribType.length == 2) {
-            attribType = composedAttribType[1].substring(1, composedAttribType[1].length() - 1);
-        }
         DomainAttributeType domainAttributeType = getDomainAttributeType(attribType);
         if (domainAttributeType == null) {
             LOGGER.warning(() -> String.format(
@@ -197,6 +192,46 @@ public final class DomainModelBuilder {
         }
 
         return domainAttribute;
+    }
+
+    /**
+     * Normalizes vendor-specific SQL type labels to a stable base type token consumed by
+     * {@link #getDomainAttributeType(String)}.
+     */
+    private String normalizeTypeName(String rawType) {
+        if (rawType == null) {
+            return null;
+        }
+        String normalized = rawType.trim().toLowerCase(Locale.ROOT);
+        int dotIndex = normalized.lastIndexOf('.');
+        if (dotIndex >= 0 && dotIndex < normalized.length() - 1) {
+            normalized = normalized.substring(dotIndex + 1);
+        }
+        normalized = normalized.replace("\"", "");
+        int paramsStart = normalized.indexOf('(');
+        if (paramsStart >= 0) {
+            normalized = normalized.substring(0, paramsStart).trim();
+        }
+        normalized = normalized.replaceAll("\\s+", " ").trim();
+        switch (normalized) {
+            case "character varying":
+                return "varchar";
+            case "character":
+                return "bpchar";
+            case "double precision":
+                return "float8";
+            case "real":
+                return "float4";
+            case "timestamp with time zone":
+                return "timestamptz";
+            case "timestamp without time zone":
+                return "timestamp";
+            case "time with time zone":
+            case "time without time zone":
+                return "time";
+            default:
+                return normalized;
+        }
     }
 
     /**
@@ -240,6 +275,7 @@ public final class DomainModelBuilder {
             case "int4":
                 return DomainAttributeType.INT;
             case "bigint":
+            case "integer":
             case "int8":
             case "bigserial":
                 return DomainAttributeType.INTEGER;
