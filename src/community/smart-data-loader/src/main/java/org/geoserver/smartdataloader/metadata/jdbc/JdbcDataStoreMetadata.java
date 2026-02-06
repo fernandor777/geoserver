@@ -123,10 +123,7 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
             long relationsStart = System.currentTimeMillis();
             List<RelationMetadata> tableRelations = jdbcHelper.getRelationsByTable(connection, jTable);
             if (tableRelations != null) {
-                tableRelations.forEach(relationMetadata -> {
-                    jTable.addRelation(relationMetadata);
-                    relations.add(relationMetadata);
-                });
+                relations.addAll(tableRelations);
             }
             jTable.setRelationsLoaded(true);
             relationsTimeMs += (System.currentTimeMillis() - relationsStart);

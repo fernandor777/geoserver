@@ -533,6 +533,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     }
                     JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, aFkColumn);
                     relations.add(relation);
+                    table.addRelation(relation);
                 }
             }
         }
@@ -552,6 +553,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     DomainRelationType type = DomainRelationType.ONEMANY;
                     JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, aFkColumn);
                     relations.add(relation);
+                    table.addRelation(relation);
                 }
             }
         }
@@ -994,9 +996,20 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
             return;
         }
         String catalog = catalogOrNull(connection);
+        Set<TableId> sourceTableIds = new HashSet<>();
+        for (JdbcTableMetadata table : tables) {
+            if (table != null && Objects.equals(schema, table.getSchema())) {
+                sourceTableIds.add(tableId(table));
+            }
+        }
         int added = 0;
-        for (SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> fkMap :
-                foreignKeysCache.values()) {
+        for (Map.Entry<TableId, SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>>>
+                cacheEntry : foreignKeysCache.entrySet()) {
+            if (!sourceTableIds.contains(cacheEntry.getKey())) {
+                continue;
+            }
+            SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> fkMap =
+                    cacheEntry.getValue();
             if (fkMap == null) {
                 continue;
             }
@@ -1009,8 +1022,13 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 }
             }
         }
-        for (SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> fkMap :
-                exportedKeysCache.values()) {
+        for (Map.Entry<TableId, SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>>>
+                cacheEntry : exportedKeysCache.entrySet()) {
+            if (!sourceTableIds.contains(cacheEntry.getKey())) {
+                continue;
+            }
+            SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> fkMap =
+                    cacheEntry.getValue();
             if (fkMap == null) {
                 continue;
             }

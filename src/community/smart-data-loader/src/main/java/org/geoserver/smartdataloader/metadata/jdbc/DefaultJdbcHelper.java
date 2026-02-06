@@ -384,6 +384,7 @@ public class DefaultJdbcHelper implements JdbcHelper {
                     }
                     JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, aFkColumn);
                     relations.add(relation);
+                    table.addRelation(relation);
                 }
             }
         }
@@ -403,6 +404,7 @@ public class DefaultJdbcHelper implements JdbcHelper {
                     DomainRelationType type = DomainRelationType.ONEMANY;
                     JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, aFkColumn);
                     relations.add(relation);
+                    table.addRelation(relation);
                 }
             }
         }
