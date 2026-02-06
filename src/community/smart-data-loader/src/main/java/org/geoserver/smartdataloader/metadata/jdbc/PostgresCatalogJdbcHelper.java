@@ -206,6 +206,9 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
     private final Map<TableId, SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>>>
             exportedKeysCache = new HashMap<>();
     private final Map<IndexKey, SortedMap<String, Collection<String>>> indexCache = new HashMap<>();
+    private final Object preloadStateLock = new Object();
+    private final Set<String> preloadedSchemas = new HashSet<>();
+    private boolean allSchemasPreloaded;
 
     public PostgresCatalogJdbcHelper() {
         this.jdbcDataStore = new JDBCDataStore();
@@ -379,6 +382,13 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         if (normalizedSchemas.isEmpty()) {
             return;
         }
+        if (areAllSchemasPreloaded(normalizedSchemas)) {
+            LOGGER.log(
+                    Level.FINER,
+                    "Skipping bulk preload for {0} schemas; metadata already available in caches.",
+                    normalizedSchemas.size());
+            return;
+        }
         String inClause = buildInClause(normalizedSchemas.size());
         long start = System.currentTimeMillis();
         preloadColumnTypesPostgres(connection, normalizedSchemas, inClause);
@@ -387,6 +397,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         preloadForeignKeysPostgres(connection, normalizedSchemas, schemaSet, inClause);
         preloadIndexesPostgres(connection, normalizedSchemas, inClause);
         preloadTablesPostgres(connection, normalizedSchemas, inClause);
+        markSchemasPreloaded(normalizedSchemas);
         LOGGER.log(Level.FINE, "Metadata preload completed for {0} schemas in {1} ms.", new Object[] {
             normalizedSchemas.size(), System.currentTimeMillis() - start
         });
@@ -401,8 +412,13 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         if (connection == null) {
             return;
         }
+        if (isAllSchemasPreloaded()) {
+            LOGGER.log(Level.FINER, "Skipping all-schemas preload; metadata already available in caches.");
+            return;
+        }
         List<String> schemas = loadAllSchemasPostgres(connection);
         preloadSchemaMetadata(connection, schemas);
+        markAllSchemasPreloaded(schemas);
     }
 
     @Override
@@ -958,6 +974,11 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         if (schema == null || schema.isEmpty()) {
             return;
         }
+        if (isSchemaPreloaded(schema)) {
+            initializeEmptyCachesForTables(tables);
+            LOGGER.log(Level.FINER, "Skipping schema preload for {0}; metadata already available in caches.", schema);
+            return;
+        }
         long start = System.currentTimeMillis();
         LOGGER.log(Level.FINE, "Preloading PostgreSQL metadata for schema {0}.", schema);
         preloadColumnTypesPostgres(connection, schema);
@@ -965,6 +986,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         preloadForeignKeysPostgres(connection, schema);
         preloadIndexesPostgres(connection, schema, tables);
         initializeEmptyCachesForTables(tables);
+        markSchemaPreloaded(schema);
         long elapsed = System.currentTimeMillis() - start;
         LOGGER.log(Level.FINE, "Metadata preload completed for schema {0} in {1} ms.", new Object[] {schema, elapsed});
     }
@@ -1515,6 +1537,73 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         for (String schema : schemas) {
             statement.setString(index, schema);
             index++;
+        }
+    }
+
+    private boolean isAllSchemasPreloaded() {
+        synchronized (preloadStateLock) {
+            return allSchemasPreloaded;
+        }
+    }
+
+    private boolean isSchemaPreloaded(String schema) {
+        if (schema == null || schema.isEmpty()) {
+            return false;
+        }
+        synchronized (preloadStateLock) {
+            return allSchemasPreloaded || preloadedSchemas.contains(schema);
+        }
+    }
+
+    private boolean areAllSchemasPreloaded(List<String> schemas) {
+        if (schemas == null || schemas.isEmpty()) {
+            return true;
+        }
+        synchronized (preloadStateLock) {
+            if (allSchemasPreloaded) {
+                return true;
+            }
+            for (String schema : schemas) {
+                if (schema != null && !schema.isEmpty() && !preloadedSchemas.contains(schema)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    private void markSchemaPreloaded(String schema) {
+        if (schema == null || schema.isEmpty()) {
+            return;
+        }
+        synchronized (preloadStateLock) {
+            preloadedSchemas.add(schema);
+        }
+    }
+
+    private void markSchemasPreloaded(List<String> schemas) {
+        if (schemas == null || schemas.isEmpty()) {
+            return;
+        }
+        synchronized (preloadStateLock) {
+            for (String schema : schemas) {
+                if (schema != null && !schema.isEmpty()) {
+                    preloadedSchemas.add(schema);
+                }
+            }
+        }
+    }
+
+    private void markAllSchemasPreloaded(List<String> schemas) {
+        synchronized (preloadStateLock) {
+            allSchemasPreloaded = true;
+            if (schemas != null) {
+                for (String schema : schemas) {
+                    if (schema != null && !schema.isEmpty()) {
+                        preloadedSchemas.add(schema);
+                    }
+                }
+            }
         }
     }
 

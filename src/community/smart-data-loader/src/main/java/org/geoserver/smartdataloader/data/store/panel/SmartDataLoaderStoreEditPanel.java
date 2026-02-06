@@ -47,7 +47,6 @@ import org.geoserver.smartdataloader.metadata.DataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataFactory;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
-import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelperFactory;
 import org.geoserver.smartdataloader.metadata.jdbc.VirtualFkJdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCache;
@@ -109,8 +108,6 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
     private String selectedWorkspaceName = "";
 
     private FeedbackPanel metadataCacheFeedback;
-    private transient VirtualFkJdbcHelper cachedJdbcHelper;
-    private transient String cachedJdbcHelperKey;
 
     public SmartDataLoaderStoreEditPanel(final String componentId, final Form storeEditForm) {
         super(componentId, storeEditForm);
@@ -505,7 +502,10 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             DataStoreMetadataConfig config = new JdbcDataStoreMetadataConfig(
                     jdbcDataStore, ds.getConnectionParameters().get("passwd").toString());
             Relationships relationships = extractVirtualRelationships();
-            VirtualFkJdbcHelper helper = getOrBuildJdbcHelper(jdbcDataStore, relationships);
+            VirtualFkJdbcHelper helper;
+            try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
+                helper = new VirtualFkJdbcHelper(JdbcHelperFactory.forConnection(connection), relationships);
+            }
             dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config, helper);
         } catch (RuntimeException e) {
             throw e;
@@ -517,32 +517,6 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             }
         }
         return dsm;
-    }
-
-    private VirtualFkJdbcHelper getOrBuildJdbcHelper(JDBCDataStore jdbcDataStore, Relationships relationships)
-            throws Exception {
-        String helperKey = buildHelperKey(jdbcDataStore);
-        if (cachedJdbcHelper != null && Objects.equals(cachedJdbcHelperKey, helperKey)) {
-            return cachedJdbcHelper;
-        }
-        try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
-            JdbcHelper delegate = JdbcHelperFactory.forConnection(connection);
-            VirtualFkJdbcHelper helper = new VirtualFkJdbcHelper(delegate, relationships);
-            helper.validateVirtualRelationships(connection, jdbcDataStore.getDatabaseSchema());
-            cachedJdbcHelper = helper;
-            cachedJdbcHelperKey = helperKey;
-            return helper;
-        }
-    }
-
-    private String buildHelperKey(JDBCDataStore jdbcDataStore) {
-        String schema = jdbcDataStore != null ? jdbcDataStore.getDatabaseSchema() : null;
-        String storeId = selectedPostgisDataStoreId != null ? selectedPostgisDataStoreId : "";
-        Object relationshipsParam = smartAppSchemaDataStoreInfo
-                .getConnectionParameters()
-                .get(SmartDataLoaderDataAccessFactory.VIRTUAL_RELATIONSHIPS.key);
-        String fingerprint = relationshipsParam instanceof String ? (String) relationshipsParam : "";
-        return storeId + "|" + Objects.toString(schema, "") + "|" + fingerprint;
     }
 
     private Relationships extractVirtualRelationships() {
