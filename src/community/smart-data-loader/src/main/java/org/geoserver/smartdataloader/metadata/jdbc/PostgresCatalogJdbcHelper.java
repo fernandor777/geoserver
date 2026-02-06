@@ -582,6 +582,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
     public List<RelationMetadata> getRelationsByTable(Connection connection, JdbcTableMetadata table) throws Exception {
         DatabaseMetaData metaData = connection.getMetaData();
         ArrayList<RelationMetadata> relations = new ArrayList<>();
+        Map<JdbcForeignKeyConstraintMetadata, DomainRelationType> cardinalityByConstraint = new HashMap<>();
         // add all foreignkeys relations
         SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> fkMap =
                 getForeignKeysByTable(metaData, table);
@@ -594,10 +595,13 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 Iterator<JdbcForeignKeyColumnMetadata> iFkColumns = fkColumns.iterator();
                 while (iFkColumns.hasNext()) {
                     JdbcForeignKeyColumnMetadata aFkColumn = iFkColumns.next();
-                    DomainRelationType type = getCardinality(metaData, table, key);
+                    DomainRelationType type = cardinalityByConstraint.get(key);
+                    if (type == null) {
+                        type = getCardinality(metaData, table, key);
+                        cardinalityByConstraint.put(key, type);
+                    }
                     JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, aFkColumn);
                     relations.add(relation);
-                    table.addRelation(relation);
                 }
             }
         }
@@ -617,7 +621,6 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     DomainRelationType type = DomainRelationType.ONEMANY;
                     JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, aFkColumn);
                     relations.add(relation);
-                    table.addRelation(relation);
                 }
             }
         }

@@ -63,12 +63,22 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
 
         long start = System.currentTimeMillis();
         loadFromDatabase(jdbcConfig, connection);
+        long loadedFromDbAt = System.currentTimeMillis();
         JdbcMetadataSnapshot snapshot = createSnapshot();
+        long snapshotAt = System.currentTimeMillis();
         metadataCache.put(cacheKey, snapshot);
         if (LOGGER.isLoggable(Level.FINE)) {
-            LOGGER.log(Level.FINE, "Loaded JDBC metadata from database and cached key={0} in {1} ms", new Object[] {
-                cacheKey.asLogToken(), System.currentTimeMillis() - start
-            });
+            LOGGER.log(
+                    Level.FINE,
+                    "Loaded JDBC metadata from database and cached key={0} in {1} ms (dbLoad={2} ms, snapshot={3} ms, tables={4}, relations={5})",
+                    new Object[] {
+                        cacheKey.asLogToken(),
+                        System.currentTimeMillis() - start,
+                        loadedFromDbAt - start,
+                        snapshotAt - loadedFromDbAt,
+                        entities != null ? entities.size() : 0,
+                        relations != null ? relations.size() : 0
+                    });
         }
     }
 
@@ -91,19 +101,26 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
 
     private void loadFromDatabase(JdbcDataStoreMetadataConfig jdbcConfig, Connection connection) throws Exception {
         entities = new ArrayList<>();
+        long tablesStart = System.currentTimeMillis();
         List<JdbcTableMetadata> tableList = jdbcHelper.getSchemaTables(connection, jdbcConfig.getSchema());
         entities.addAll(tableList);
+        long tablesLoadedAt = System.currentTimeMillis();
 
         relations = new ArrayList<>();
+        long columnsTimeMs = 0L;
+        long relationsTimeMs = 0L;
         Iterator<JdbcTableMetadata> iTables = tableList.iterator();
         while (iTables.hasNext()) {
             JdbcTableMetadata jTable = iTables.next();
+            long columnsStart = System.currentTimeMillis();
             List<AttributeMetadata> attributes = jdbcHelper.getColumnsByTable(connection, jTable);
             if (attributes != null) {
                 attributes.forEach(jTable::addAttribute);
             }
             jTable.setAttributesLoaded(true);
+            columnsTimeMs += (System.currentTimeMillis() - columnsStart);
 
+            long relationsStart = System.currentTimeMillis();
             List<RelationMetadata> tableRelations = jdbcHelper.getRelationsByTable(connection, jTable);
             if (tableRelations != null) {
                 tableRelations.forEach(relationMetadata -> {
@@ -112,6 +129,13 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
                 });
             }
             jTable.setRelationsLoaded(true);
+            relationsTimeMs += (System.currentTimeMillis() - relationsStart);
+        }
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.log(
+                    Level.FINE,
+                    "JDBC metadata load phases: tables={0} ms, columns={1} ms, relations={2} ms, tableCount={3}",
+                    new Object[] {tablesLoadedAt - tablesStart, columnsTimeMs, relationsTimeMs, tableList.size()});
         }
     }
 
