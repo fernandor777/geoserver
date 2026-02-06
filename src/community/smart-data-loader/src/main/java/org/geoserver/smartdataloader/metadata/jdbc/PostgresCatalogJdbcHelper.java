@@ -33,7 +33,6 @@ import org.geoserver.smartdataloader.metadata.RelationMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.constraint.JdbcForeignKeyConstraintMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.constraint.JdbcIndexConstraintMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.constraint.JdbcPrimaryKeyConstraintMetadata;
-import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.util.logging.Logging;
 
 /**
@@ -195,7 +194,6 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
             + "AND nspname <> 'information_schema' "
             + "ORDER BY nspname";
 
-    private final JDBCDataStore jdbcDataStore;
     private final Map<TableId, List<AttributeMetadata>> columnsCache = new HashMap<>();
     private final Map<TableId, Map<String, String>> columnTypeCache = new HashMap<>();
     private final Map<TableId, Set<String>> primaryKeyColumnsCache = new HashMap<>();
@@ -211,7 +209,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
     private boolean allSchemasPreloaded;
 
     public PostgresCatalogJdbcHelper() {
-        this.jdbcDataStore = new JDBCDataStore();
+        // default constructor
     }
 
     private TableId tableId(JdbcTableMetadata table) {
@@ -328,26 +326,6 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         return columnTypes.get(columnName);
     }
 
-    private List<JdbcTableMetadata> getListOfTablesFromResultSet(DatabaseMetaData metaData, ResultSet tables)
-            throws Exception {
-        if (tables != null) {
-            List<JdbcTableMetadata> tableList = new ArrayList<>();
-            while (tables.next()) {
-                String tableType = tables.getString("TABLE_TYPE");
-                if (tableType != null && (tableType.equals("TABLE") || tableType.equals("VIEW"))) {
-                    tableList.add(new JdbcTableMetadata(
-                            metaData.getConnection(),
-                            tables.getString("TABLE_CAT"),
-                            tables.getString("TABLE_SCHEM"),
-                            tables.getString("TABLE_NAME"),
-                            this));
-                }
-            }
-            return tableList;
-        }
-        return null;
-    }
-
     @Override
     public List<JdbcTableMetadata> getSchemaTables(Connection connection, String schema) throws Exception {
         if (connection == null) {
@@ -428,69 +406,6 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         }
         LOGGER.log(Level.FINE, "Using PostgreSQL bulk metadata queries for all schemas.");
         return loadAllTablesPostgres(connection);
-    }
-
-    private void discoverCrossSchemaTables(DatabaseMetaData metaData, List<JdbcTableMetadata> tables) throws Exception {
-        boolean addedTables;
-        do {
-            addedTables = false;
-            List<JdbcTableMetadata> snapshot = new ArrayList<>(tables);
-            for (JdbcTableMetadata table : snapshot) {
-                addedTables |= addImportedKeyTables(metaData, tables, table);
-                addedTables |= addExportedKeyTables(metaData, tables, table);
-            }
-        } while (addedTables);
-    }
-
-    private boolean addImportedKeyTables(
-            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, JdbcTableMetadata table) throws Exception {
-        boolean added = false;
-        try (ResultSet rs = metaData.getImportedKeys(table.getCatalog(), table.getSchema(), table.getName())) {
-            while (rs.next()) {
-                added |= addTableIfMissing(
-                        metaData,
-                        tables,
-                        rs.getString("PKTABLE_CAT"),
-                        rs.getString("PKTABLE_SCHEM"),
-                        rs.getString("PKTABLE_NAME"));
-            }
-        }
-        return added;
-    }
-
-    private boolean addExportedKeyTables(
-            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, JdbcTableMetadata table) throws Exception {
-        boolean added = false;
-        try (ResultSet rs = metaData.getExportedKeys(table.getCatalog(), table.getSchema(), table.getName())) {
-            while (rs.next()) {
-                added |= addTableIfMissing(
-                        metaData,
-                        tables,
-                        rs.getString("FKTABLE_CAT"),
-                        rs.getString("FKTABLE_SCHEM"),
-                        rs.getString("FKTABLE_NAME"));
-            }
-        }
-        return added;
-    }
-
-    private boolean addTableIfMissing(
-            DatabaseMetaData metaData, List<JdbcTableMetadata> tables, String catalog, String schema, String tableName)
-            throws Exception {
-        if (tableName == null) {
-            return false;
-        }
-        for (JdbcTableMetadata existing : tables) {
-            if (Objects.equals(existing.getName(), tableName)
-                    && Objects.equals(existing.getSchema(), schema)
-                    && Objects.equals(existing.getCatalog(), catalog)) {
-                return false;
-            }
-        }
-        JdbcTableMetadata relatedTable =
-                new JdbcTableMetadata(metaData.getConnection(), catalog, schema, tableName, this);
-        tables.add(relatedTable);
-        return true;
     }
 
     @Override
@@ -1127,170 +1042,6 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         }
         tables.add(new JdbcTableMetadata(connection, catalog, schema, tableName, this));
         return true;
-    }
-
-    private void preloadColumnTypes(DatabaseMetaData metaData, String schema) throws Exception {
-        String schemaPattern = jdbcDataStore.escapeNamePattern(metaData, schema);
-        try (ResultSet columns = metaData.getColumns(null, schemaPattern, "%", "%")) {
-            if (columns == null) {
-                return;
-            }
-            while (columns.next()) {
-                TableId id = new TableId(
-                        columns.getString("TABLE_CAT"),
-                        columns.getString("TABLE_SCHEM"),
-                        columns.getString("TABLE_NAME"));
-                Map<String, String> columnTypes = columnTypeCache.computeIfAbsent(id, key -> new LinkedHashMap<>());
-                columnTypes.put(columns.getString("COLUMN_NAME"), columns.getString("TYPE_NAME"));
-            }
-        }
-    }
-
-    private void preloadPrimaryKeys(DatabaseMetaData metaData, String schema) throws Exception {
-        String schemaPattern = jdbcDataStore.escapeNamePattern(metaData, schema);
-        Map<TableId, PrimaryKeyBuilder> builders = new HashMap<>();
-        try (ResultSet primaryKeys = metaData.getPrimaryKeys(null, schemaPattern, "%")) {
-            if (primaryKeys == null) {
-                return;
-            }
-            while (primaryKeys.next()) {
-                TableId id = new TableId(
-                        primaryKeys.getString("TABLE_CAT"),
-                        primaryKeys.getString("TABLE_SCHEM"),
-                        primaryKeys.getString("TABLE_NAME"));
-                String pkName = primaryKeys.getString("PK_NAME");
-                PrimaryKeyBuilder builder = builders.computeIfAbsent(id, key -> new PrimaryKeyBuilder(pkName));
-                builder.addColumn(primaryKeys.getString("COLUMN_NAME"));
-            }
-        }
-        for (Map.Entry<TableId, PrimaryKeyBuilder> entry : builders.entrySet()) {
-            TableId id = entry.getKey();
-            PrimaryKeyBuilder builder = entry.getValue();
-            JdbcTableMetadata pkTable =
-                    new JdbcTableMetadata(metaData.getConnection(), id.catalog, id.schema, id.name, this);
-            JdbcPrimaryKeyConstraintMetadata primaryKey =
-                    new JdbcPrimaryKeyConstraintMetadata(pkTable, builder.name, builder.columns);
-            primaryKeyCache.put(id, primaryKey);
-            primaryKeyColumnsCache.put(id, new HashSet<>(builder.columns));
-        }
-    }
-
-    private void preloadForeignKeys(DatabaseMetaData metaData, String schema) {
-        String schemaPattern;
-        try {
-            schemaPattern = jdbcDataStore.escapeNamePattern(metaData, schema);
-        } catch (Exception e) {
-            return;
-        }
-        Map<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>> fkMultimaps =
-                new HashMap<>();
-        try (ResultSet foreignKeys = metaData.getImportedKeys(null, schemaPattern, "%")) {
-            if (foreignKeys == null) {
-                return;
-            }
-            while (foreignKeys.next()) {
-                TableId fkId = new TableId(
-                        foreignKeys.getString("FKTABLE_CAT"),
-                        foreignKeys.getString("FKTABLE_SCHEM"),
-                        foreignKeys.getString("FKTABLE_NAME"));
-                JdbcTableMetadata fkTable =
-                        new JdbcTableMetadata(metaData.getConnection(), fkId.catalog, fkId.schema, fkId.name, this);
-                JdbcTableMetadata pkTable = new JdbcTableMetadata(
-                        metaData.getConnection(),
-                        foreignKeys.getString("PKTABLE_CAT"),
-                        foreignKeys.getString("PKTABLE_SCHEM"),
-                        foreignKeys.getString("PKTABLE_NAME"),
-                        this);
-                String fkColumnName = foreignKeys.getString("FKCOLUMN_NAME");
-                String columnType = getColumnType(metaData, fkTable, fkColumnName);
-                JdbcForeignKeyConstraintMetadata fkConstraint =
-                        new JdbcForeignKeyConstraintMetadata(fkTable, foreignKeys.getString("FK_NAME"), pkTable);
-                JdbcForeignKeyColumnMetadata fkColumn = new JdbcForeignKeyColumnMetadata(
-                        fkTable,
-                        fkColumnName,
-                        columnType,
-                        new JdbcColumnMetadata(pkTable, foreignKeys.getString("PKCOLUMN_NAME"), columnType, false));
-                SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata> fkMultimap =
-                        fkMultimaps.computeIfAbsent(fkId, key -> TreeMultimap.create());
-                fkMultimap.put(fkConstraint, fkColumn);
-                foreignKeyColumnsCache
-                        .computeIfAbsent(fkId, key -> new HashSet<>())
-                        .add(fkColumnName);
-            }
-        } catch (Exception e) {
-            return;
-        }
-        for (Map.Entry<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>>
-                entry : fkMultimaps.entrySet()) {
-            SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> fkMap =
-                    new TreeMap<>();
-            fkMap.putAll(entry.getValue().asMap());
-            foreignKeysCache.put(entry.getKey(), fkMap);
-        }
-    }
-
-    private void preloadExportedKeys(DatabaseMetaData metaData, String schema) {
-        String schemaPattern;
-        try {
-            schemaPattern = jdbcDataStore.escapeNamePattern(metaData, schema);
-        } catch (Exception e) {
-            return;
-        }
-        Map<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>>
-                exportedMultimaps = new HashMap<>();
-        try (ResultSet foreignKeys = metaData.getExportedKeys(null, schemaPattern, "%")) {
-            if (foreignKeys == null) {
-                return;
-            }
-            while (foreignKeys.next()) {
-                TableId pkId = new TableId(
-                        foreignKeys.getString("PKTABLE_CAT"),
-                        foreignKeys.getString("PKTABLE_SCHEM"),
-                        foreignKeys.getString("PKTABLE_NAME"));
-                JdbcTableMetadata pkTable =
-                        new JdbcTableMetadata(metaData.getConnection(), pkId.catalog, pkId.schema, pkId.name, this);
-                JdbcTableMetadata fkTable = new JdbcTableMetadata(
-                        metaData.getConnection(),
-                        foreignKeys.getString("FKTABLE_CAT"),
-                        foreignKeys.getString("FKTABLE_SCHEM"),
-                        foreignKeys.getString("FKTABLE_NAME"),
-                        this);
-                String fkColumnName = foreignKeys.getString("FKCOLUMN_NAME");
-                String columnType = getColumnType(metaData, fkTable, fkColumnName);
-                JdbcForeignKeyConstraintMetadata pkConstraint =
-                        new JdbcForeignKeyConstraintMetadata(pkTable, foreignKeys.getString("PK_NAME"), fkTable);
-                JdbcForeignKeyColumnMetadata fkColumns = new JdbcForeignKeyColumnMetadata(
-                        fkTable,
-                        fkColumnName,
-                        columnType,
-                        new JdbcColumnMetadata(pkTable, foreignKeys.getString("PKCOLUMN_NAME"), columnType, false));
-                SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata> pkMultimap =
-                        exportedMultimaps.computeIfAbsent(pkId, key -> TreeMultimap.create());
-                pkMultimap.put(pkConstraint, fkColumns);
-            }
-        } catch (Exception e) {
-            return;
-        }
-        for (Map.Entry<TableId, SortedSetMultimap<JdbcForeignKeyConstraintMetadata, JdbcForeignKeyColumnMetadata>>
-                entry : exportedMultimaps.entrySet()) {
-            SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>> inversedFkMap =
-                    new TreeMap<>();
-            inversedFkMap.putAll(entry.getValue().asMap());
-            exportedKeysCache.put(entry.getKey(), inversedFkMap);
-        }
-    }
-
-    private void preloadIndexes(DatabaseMetaData metaData, List<JdbcTableMetadata> tables) {
-        if (tables == null) {
-            return;
-        }
-        for (JdbcTableMetadata table : tables) {
-            try {
-                getIndexesByTable(metaData, table, true, true);
-            } catch (Exception e) {
-                return;
-            }
-        }
     }
 
     private void preloadColumnTypesPostgres(Connection connection, String schema) throws Exception {
