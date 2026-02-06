@@ -11,12 +11,16 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import org.apache.wicket.ajax.AjaxEventBehavior;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.form.AjaxFormComponentUpdatingBehavior;
+import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.markup.head.CssHeaderItem;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.html.WebMarkupContainer;
@@ -24,6 +28,7 @@ import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.ChoiceRenderer;
 import org.apache.wicket.markup.html.form.DropDownChoice;
 import org.apache.wicket.markup.html.form.Form;
+import org.apache.wicket.markup.html.panel.FeedbackPanel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.model.PropertyModel;
@@ -44,6 +49,8 @@ import org.geoserver.smartdataloader.metadata.EntityMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelperFactory;
 import org.geoserver.smartdataloader.metadata.jdbc.VirtualFkJdbcHelper;
+import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCache;
+import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCacheSupport;
 import org.geoserver.web.data.store.StoreEditPanel;
 import org.geoserver.web.data.store.panel.TextParamPanel;
 import org.geoserver.web.data.store.panel.WorkspacePanel;
@@ -51,10 +58,13 @@ import org.geoserver.web.util.MapModel;
 import org.geoserver.web.wicket.ParamResourceModel;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.JDBCDataStoreFactory;
+import org.geotools.util.logging.Logging;
 
 /** Implementation od StoreEditPanel for PostgisSmartAppSchemaDataAccessFactory. */
 @SuppressWarnings("serial")
 public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
+
+    private static final Logger LOGGER = Logging.getLogger(SmartDataLoaderStoreEditPanel.class);
 
     // resources
     private Model<DataStoreSummary> datastoreModel;
@@ -97,6 +107,8 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
     @SuppressWarnings("unused")
     private String selectedWorkspaceName = "";
 
+    private FeedbackPanel metadataCacheFeedback;
+
     public SmartDataLoaderStoreEditPanel(final String componentId, final Form storeEditForm) {
         super(componentId, storeEditForm);
         model = storeEditForm.getModel();
@@ -110,6 +122,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         buildEntitiesPrefixTextbox();
         // build connection parameters panel
         buildPostgisDropDownPanel();
+        buildMetadataCacheRefreshHook();
         // build rootentity selector panel
         buildRootEntitySelectionPanel(model);
         // build entities, attributes and relations selector panel
@@ -218,6 +231,80 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         Label dataStoreLabel = new Label("dataStoreName", "Data store name *");
         add(dataStoreLabel);
         add(datastores);
+    }
+
+    /** Builds a UI hook that allows manually invalidating cached metadata for the selected JDBC datastore. */
+    private void buildMetadataCacheRefreshHook() {
+        metadataCacheFeedback = new FeedbackPanel("metadataCacheFeedback");
+        metadataCacheFeedback.setOutputMarkupId(true);
+        add(metadataCacheFeedback);
+
+        AjaxLink<Void> refreshMetadataCache = new AjaxLink<Void>("refreshMetadataCache") {
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                try {
+                    boolean invalidated = invalidateSelectedStoreMetadataCache();
+                    if (invalidated) {
+                        info(getString("PostGisSmartAppSchemaStoreEditPanel.metadataCacheRefresh.success"));
+                    } else {
+                        info(getString("PostGisSmartAppSchemaStoreEditPanel.metadataCacheRefresh.disabled"));
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Failed to refresh Smart Data Loader metadata cache from UI.", e);
+                    error(getString("PostGisSmartAppSchemaStoreEditPanel.metadataCacheRefresh.error"));
+                }
+                if (target != null) {
+                    target.add(metadataCacheFeedback);
+                }
+            }
+        };
+        refreshMetadataCache.setOutputMarkupId(true);
+        add(refreshMetadataCache);
+    }
+
+    private boolean invalidateSelectedStoreMetadataCache() throws Exception {
+        if (selectedPostgisDataStoreId == null || selectedPostgisDataStoreId.isEmpty()) {
+            throw new IllegalStateException("No datastore is selected.");
+        }
+        DataStoreInfo ds = getCatalog().getDataStore(selectedPostgisDataStoreId);
+        if (ds == null) {
+            throw new IllegalStateException("Selected datastore no longer exists.");
+        }
+        JDBCDataStoreFactory factory = new JDBCDataStoreFactoryFinder().getFactoryFromType(ds.getType());
+        if (factory == null) {
+            throw new IllegalStateException("No JDBC factory found for datastore type " + ds.getType());
+        }
+
+        JdbcMetadataCache cache = JdbcMetadataCacheSupport.resolveCache(LOGGER);
+        if (!cache.isEnabled()) {
+            LOGGER.fine("Metadata cache refresh requested from UI while cache is disabled.");
+            return false;
+        }
+
+        DataStoreInfo clonedStore = getCatalog().getResourcePool().clone(ds, true);
+        JDBCDataStore jdbcDataStore = null;
+        try {
+            jdbcDataStore = factory.createDataStore(clonedStore.getConnectionParameters());
+            if (jdbcDataStore == null) {
+                throw new IllegalStateException("Cannot build JDBC datastore for selected datastore.");
+            }
+            String password =
+                    Objects.toString(clonedStore.getConnectionParameters().get("passwd"), "");
+            JdbcDataStoreMetadataConfig config = new JdbcDataStoreMetadataConfig(jdbcDataStore, password);
+            try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
+                String datastoreId = JdbcMetadataCacheSupport.buildDatastoreId(connection, config);
+                cache.invalidateByStore(datastoreId, config.getSchema());
+                LOGGER.log(
+                        Level.INFO,
+                        "Invalidated metadata cache from UI for datastore {0} schema {1}.",
+                        new Object[] {ds.getName(), config.getSchema()});
+            }
+            return true;
+        } finally {
+            if (jdbcDataStore != null) {
+                jdbcDataStore.dispose();
+            }
+        }
     }
 
     private List<DataStoreSummary> getPostgisDataStores(WorkspaceInfo wi) {

@@ -4,14 +4,13 @@
  */
 package org.geoserver.smartdataloader.metadata;
 
-import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelperFactory;
 import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCache;
+import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCacheSupport;
 import org.geoserver.smartdataloader.metadata.jdbc.cache.NoOpJdbcMetadataCache;
 import org.geotools.util.logging.Logging;
 
@@ -38,28 +37,7 @@ public class DataStoreMetadataFactory {
     }
 
     private JdbcMetadataCache resolveCacheBean() {
-        try {
-            JdbcMetadataCache cache = GeoServerExtensions.bean(JdbcMetadataCache.class);
-            if (cache != null) {
-                return cache;
-            }
-        } catch (Exception e) {
-            if (LOGGER.isLoggable(Level.FINER)) {
-                LOGGER.log(Level.FINER, "Unable to resolve JdbcMetadataCache bean by type", e);
-            }
-        }
-
-        try {
-            Object bean = GeoServerExtensions.bean("smartDataLoaderJdbcMetadataCache");
-            if (bean instanceof JdbcMetadataCache) {
-                return (JdbcMetadataCache) bean;
-            }
-        } catch (Exception e) {
-            if (LOGGER.isLoggable(Level.FINER)) {
-                LOGGER.log(Level.FINER, "Unable to resolve JdbcMetadataCache bean by name", e);
-            }
-        }
-
-        return NoOpJdbcMetadataCache.INSTANCE;
+        JdbcMetadataCache cache = JdbcMetadataCacheSupport.resolveCache(LOGGER);
+        return cache != null ? cache : NoOpJdbcMetadataCache.INSTANCE;
     }
 }

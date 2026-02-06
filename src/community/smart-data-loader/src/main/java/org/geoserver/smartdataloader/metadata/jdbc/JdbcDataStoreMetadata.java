@@ -22,6 +22,7 @@ import org.geoserver.smartdataloader.metadata.RelationMetadata;
 import org.geoserver.smartdataloader.metadata.VirtualRelationMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCache;
 import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCacheKey;
+import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCacheSupport;
 import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataSnapshot;
 import org.geoserver.smartdataloader.metadata.jdbc.cache.NoOpJdbcMetadataCache;
 import org.geotools.util.logging.Logging;
@@ -116,19 +117,7 @@ public class JdbcDataStoreMetadata extends DataStoreMetadataImpl {
 
     private JdbcMetadataCacheKey buildCacheKey(JdbcDataStoreMetadataConfig jdbcConfig, Connection connection)
             throws Exception {
-        String url = null;
-        String user = null;
-        if (connection != null && connection.getMetaData() != null) {
-            url = connection.getMetaData().getURL();
-            user = connection.getMetaData().getUserName();
-        }
-        String datastoreId = Objects.toString(url, "")
-                + "|"
-                + Objects.toString(user, "")
-                + "|"
-                + Objects.toString(jdbcConfig.getCatalog(), "")
-                + "|"
-                + Objects.toString(jdbcConfig.getName(), "");
+        String datastoreId = JdbcMetadataCacheSupport.buildDatastoreId(connection, jdbcConfig);
         return new JdbcMetadataCacheKey(datastoreId, jdbcConfig.getSchema(), jdbcHelper.cacheFingerprint());
     }
 

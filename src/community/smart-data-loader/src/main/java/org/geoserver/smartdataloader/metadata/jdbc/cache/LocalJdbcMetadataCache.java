@@ -8,12 +8,16 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geotools.util.logging.Logging;
 
-/** Spring-managed in-memory cache with TTL semantics for datastore metadata snapshots. */
-public class SpringJdbcMetadataCache implements JdbcMetadataCache {
+/** Local in-memory cache with TTL semantics for datastore metadata snapshots. */
+public class LocalJdbcMetadataCache implements JdbcMetadataCache {
 
     public static final String PROP_ENABLED = "smartdataloader.metadata.cache.enabled";
     public static final String ENV_ENABLED = "SMART_DATALOADER_METADATA_CACHE_ENABLED";
@@ -21,26 +25,36 @@ public class SpringJdbcMetadataCache implements JdbcMetadataCache {
     public static final String ENV_TTL_SECONDS = "SMART_DATALOADER_METADATA_CACHE_TTL_SECONDS";
     public static final String PROP_MAX_ENTRIES = "smartdataloader.metadata.cache.max.entries";
     public static final String ENV_MAX_ENTRIES = "SMART_DATALOADER_METADATA_CACHE_MAX_ENTRIES";
+    public static final String PROP_CLEANUP_INTERVAL_SECONDS =
+            "smartdataloader.metadata.cache.cleanup.interval.seconds";
+    public static final String ENV_CLEANUP_INTERVAL_SECONDS =
+            "SMART_DATALOADER_METADATA_CACHE_CLEANUP_INTERVAL_SECONDS";
 
-    private static final Logger LOGGER = Logging.getLogger(SpringJdbcMetadataCache.class);
+    private static final Logger LOGGER = Logging.getLogger(LocalJdbcMetadataCache.class);
     private static final boolean DEFAULT_ENABLED = true;
     private static final long DEFAULT_TTL_SECONDS = 900L;
     private static final int DEFAULT_MAX_ENTRIES = 256;
+    private static final long DEFAULT_CLEANUP_INTERVAL_SECONDS = 60L;
 
     private final Object lock = new Object();
     private final boolean enabled;
     private final long ttlMillis;
     private final int maxEntries;
+    private final long cleanupIntervalMillis;
     private final LinkedHashMap<JdbcMetadataCacheKey, Entry> entries;
+    private final ScheduledExecutorService cleanupExecutor;
 
-    public SpringJdbcMetadataCache() {
+    public LocalJdbcMetadataCache() {
         this.enabled = readBoolean(PROP_ENABLED, ENV_ENABLED, DEFAULT_ENABLED);
         this.ttlMillis = readLongSeconds(PROP_TTL_SECONDS, ENV_TTL_SECONDS, DEFAULT_TTL_SECONDS) * 1000L;
         this.maxEntries = readInt(PROP_MAX_ENTRIES, ENV_MAX_ENTRIES, DEFAULT_MAX_ENTRIES);
+        this.cleanupIntervalMillis = readLongSeconds(
+                        PROP_CLEANUP_INTERVAL_SECONDS, ENV_CLEANUP_INTERVAL_SECONDS, DEFAULT_CLEANUP_INTERVAL_SECONDS)
+                * 1000L;
         this.entries = new LinkedHashMap<JdbcMetadataCacheKey, Entry>(16, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<JdbcMetadataCacheKey, Entry> eldest) {
-                boolean remove = size() > SpringJdbcMetadataCache.this.maxEntries;
+                boolean remove = size() > LocalJdbcMetadataCache.this.maxEntries;
                 if (remove && LOGGER.isLoggable(Level.FINER)) {
                     LOGGER.log(
                             Level.FINER,
@@ -50,10 +64,12 @@ public class SpringJdbcMetadataCache implements JdbcMetadataCache {
                 return remove;
             }
         };
+        this.cleanupExecutor = createCleanupExecutor();
+        scheduleCleanup();
         LOGGER.log(
                 Level.INFO,
-                "JDBC metadata cache initialized: enabled={0}, ttlSeconds={1}, maxEntries={2}",
-                new Object[] {enabled, ttlMillis / 1000L, maxEntries});
+                "JDBC metadata cache initialized: enabled={0}, ttlSeconds={1}, maxEntries={2}, cleanupIntervalSeconds={3}",
+                new Object[] {enabled, ttlMillis / 1000L, maxEntries, cleanupIntervalMillis / 1000L});
     }
 
     @Override
@@ -138,15 +154,64 @@ public class SpringJdbcMetadataCache implements JdbcMetadataCache {
         return enabled;
     }
 
-    private void purgeExpired(long now) {
+    /**
+     * Releases scheduled resources owned by this cache.
+     *
+     * <p>Configured as Spring bean {@code destroy-method}.
+     */
+    public void shutdown() {
+        cleanupExecutor.shutdownNow();
+        LOGGER.fine("Stopped JDBC metadata cache cleanup scheduler.");
+    }
+
+    private ScheduledExecutorService createCleanupExecutor() {
+        ThreadFactory factory = runnable -> {
+            Thread thread = new Thread(runnable, "sdl-jdbc-cache-cleanup");
+            thread.setDaemon(true);
+            return thread;
+        };
+        return Executors.newSingleThreadScheduledExecutor(factory);
+    }
+
+    private void scheduleCleanup() {
+        if (!enabled || ttlMillis <= 0L || cleanupIntervalMillis <= 0L) {
+            LOGGER.finer("JDBC metadata cache cleanup scheduler disabled.");
+            return;
+        }
+        cleanupExecutor.scheduleAtFixedRate(
+                this::runCleanupCycle, cleanupIntervalMillis, cleanupIntervalMillis, TimeUnit.MILLISECONDS);
+        LOGGER.log(
+                Level.FINE,
+                "Started JDBC metadata cache cleanup scheduler with interval {0} ms.",
+                cleanupIntervalMillis);
+    }
+
+    private void runCleanupCycle() {
+        try {
+            int evicted;
+            synchronized (lock) {
+                evicted = purgeExpired(System.currentTimeMillis());
+            }
+            if (evicted > 0 && LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.log(Level.FINE, "Evicted {0} expired JDBC metadata cache entries.", evicted);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Unexpected error while running JDBC metadata cache cleanup cycle.", e);
+        }
+    }
+
+    private int purgeExpired(long now) {
+        int removed = 0;
         Iterator<Map.Entry<JdbcMetadataCacheKey, Entry>> iterator =
                 entries.entrySet().iterator();
         while (iterator.hasNext()) {
             Entry entry = iterator.next().getValue();
             if (isExpired(entry, now)) {
                 iterator.remove();
+                removed++;
             }
         }
+        return removed;
     }
 
     private boolean isExpired(Entry entry, long now) {
