@@ -110,7 +110,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "JOIN pg_attribute fatt ON fatt.attrelid = frel.oid AND fatt.attnum = fu.attnum "
                     + "WHERE con.contype = 'f' "
                     + "AND (nsp.nspname = ? OR fnsp.nspname = ?) "
-                    + "GROUP BY nsp.nspname, rel.relname, con.conname, fnsp.nspname, frel.relname, con.oid "
+                    + "GROUP BY nsp.nspname, rel.relname, con.conname, fnsp.nspname, frel.relname, con.oid, pk.conname "
                     + "ORDER BY rel.relname, con.conname";
     private static final String POSTGRES_UNIQUE_INDEXES_SQL =
             "SELECT n.nspname AS schema_name, c.relname AS table_name, ic.relname AS index_name, "
@@ -174,7 +174,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "JOIN pg_attribute fatt ON fatt.attrelid = frel.oid AND fatt.attnum = fu.attnum "
                     + "WHERE con.contype = 'f' "
                     + "AND (nsp.nspname IN (%s) OR fnsp.nspname IN (%s)) "
-                    + "GROUP BY nsp.nspname, rel.relname, con.conname, fnsp.nspname, frel.relname, con.oid "
+                    + "GROUP BY nsp.nspname, rel.relname, con.conname, fnsp.nspname, frel.relname, con.oid, pk.conname "
                     + "ORDER BY rel.relname, con.conname";
     private static final String POSTGRES_UNIQUE_INDEXES_BY_SCHEMAS_SQL =
             "SELECT n.nspname AS schema_name, c.relname AS table_name, ic.relname AS index_name, "

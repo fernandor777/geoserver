@@ -41,7 +41,7 @@ public class LocalJdbcMetadataCache implements JdbcMetadataCache {
     private final long ttlMillis;
     private final int maxEntries;
     private final long cleanupIntervalMillis;
-    private final LinkedHashMap<JdbcMetadataCacheKey, Entry> entries;
+    private final LinkedHashMap<JdbcMetadataCacheKey, CacheEntry> entries;
     private final ScheduledExecutorService cleanupExecutor;
 
     public LocalJdbcMetadataCache() {
@@ -51,9 +51,9 @@ public class LocalJdbcMetadataCache implements JdbcMetadataCache {
         this.cleanupIntervalMillis = readLongSeconds(
                         PROP_CLEANUP_INTERVAL_SECONDS, ENV_CLEANUP_INTERVAL_SECONDS, DEFAULT_CLEANUP_INTERVAL_SECONDS)
                 * 1000L;
-        this.entries = new LinkedHashMap<JdbcMetadataCacheKey, Entry>(16, 0.75f, true) {
+        this.entries = new LinkedHashMap<JdbcMetadataCacheKey, CacheEntry>(16, 0.75f, true) {
             @Override
-            protected boolean removeEldestEntry(Map.Entry<JdbcMetadataCacheKey, Entry> eldest) {
+            protected boolean removeEldestEntry(Map.Entry<JdbcMetadataCacheKey, CacheEntry> eldest) {
                 boolean remove = size() > LocalJdbcMetadataCache.this.maxEntries;
                 if (remove && LOGGER.isLoggable(Level.FINER)) {
                     LOGGER.log(
@@ -78,7 +78,7 @@ public class LocalJdbcMetadataCache implements JdbcMetadataCache {
             return Optional.empty();
         }
         synchronized (lock) {
-            Entry entry = entries.get(key);
+            CacheEntry entry = entries.get(key);
             if (entry == null) {
                 if (LOGGER.isLoggable(Level.FINE)) {
                     LOGGER.log(Level.FINE, "JDBC metadata cache miss for key {0}", key.asLogToken());
@@ -106,7 +106,7 @@ public class LocalJdbcMetadataCache implements JdbcMetadataCache {
         }
         synchronized (lock) {
             purgeExpired(System.currentTimeMillis());
-            entries.put(key, new Entry(snapshot, System.currentTimeMillis()));
+            entries.put(key, new CacheEntry(snapshot, System.currentTimeMillis()));
         }
         if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.log(Level.FINE, "Stored JDBC metadata cache entry for key {0}", key.asLogToken());
@@ -127,7 +127,7 @@ public class LocalJdbcMetadataCache implements JdbcMetadataCache {
     @Override
     public void invalidateByStore(String datastoreId, String schema) {
         synchronized (lock) {
-            Iterator<Map.Entry<JdbcMetadataCacheKey, Entry>> iterator =
+            Iterator<Map.Entry<JdbcMetadataCacheKey, CacheEntry>> iterator =
                     entries.entrySet().iterator();
             while (iterator.hasNext()) {
                 JdbcMetadataCacheKey key = iterator.next().getKey();
@@ -202,10 +202,10 @@ public class LocalJdbcMetadataCache implements JdbcMetadataCache {
 
     private int purgeExpired(long now) {
         int removed = 0;
-        Iterator<Map.Entry<JdbcMetadataCacheKey, Entry>> iterator =
+        Iterator<Map.Entry<JdbcMetadataCacheKey, CacheEntry>> iterator =
                 entries.entrySet().iterator();
         while (iterator.hasNext()) {
-            Entry entry = iterator.next().getValue();
+            CacheEntry entry = iterator.next().getValue();
             if (isExpired(entry, now)) {
                 iterator.remove();
                 removed++;
@@ -214,7 +214,7 @@ public class LocalJdbcMetadataCache implements JdbcMetadataCache {
         return removed;
     }
 
-    private boolean isExpired(Entry entry, long now) {
+    private boolean isExpired(CacheEntry entry, long now) {
         return ttlMillis > 0L && (now - entry.createdAtMillis) > ttlMillis;
     }
 
@@ -268,11 +268,11 @@ public class LocalJdbcMetadataCache implements JdbcMetadataCache {
         }
     }
 
-    private static final class Entry {
+    private static final class CacheEntry {
         private final JdbcMetadataSnapshot snapshot;
         private final long createdAtMillis;
 
-        private Entry(JdbcMetadataSnapshot snapshot, long createdAtMillis) {
+        private CacheEntry(JdbcMetadataSnapshot snapshot, long createdAtMillis) {
             this.snapshot = snapshot;
             this.createdAtMillis = createdAtMillis;
         }
