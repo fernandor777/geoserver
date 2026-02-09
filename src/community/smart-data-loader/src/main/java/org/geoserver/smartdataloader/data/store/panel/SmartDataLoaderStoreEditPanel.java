@@ -190,7 +190,18 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
     @Override
     public void renderHead(IHeaderResponse response) {
         super.renderHead(response);
-        String css = ".qos-panel { " + "border: 1px solid #c6e09b; " + "padding: 5px; " + " }";
+        String css = ".qos-panel { "
+                + "border: 1px solid #c6e09b; "
+                + "padding: 5px; "
+                + " } "
+                + ".metadata-cache-actions { "
+                + "margin-top: 10px; "
+                + "margin-bottom: 14px; "
+                + "padding-left: 2px; "
+                + "} "
+                + ".metadata-cache-actions .feedbackPanel { "
+                + "margin-top: 6px; "
+                + "}";
         response.render(CssHeaderItem.forCSS(css, "qosPanelCss"));
     }
 

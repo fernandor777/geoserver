@@ -8,11 +8,15 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.geoserver.smartdataloader.metadata.AttributeMetadata;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
 import org.geoserver.smartdataloader.metadata.RelationMetadata;
+import org.geotools.util.logging.Logging;
 
 /**
  * Class representing metadata for a table (EntityMetadata) in a JDBC DataStore.
@@ -20,6 +24,8 @@ import org.geoserver.smartdataloader.metadata.RelationMetadata;
  * @author Jose Macchi - Geosolutions
  */
 public class JdbcTableMetadata extends EntityMetadata implements JdbcConnectable {
+    private static final Logger LOGGER = Logging.getLogger(JdbcTableMetadata.class);
+
     private final Connection connection;
     private final String catalog;
     private final String schema;
@@ -94,6 +100,16 @@ public class JdbcTableMetadata extends EntityMetadata implements JdbcConnectable
         try {
             // Lazy load in case not loaded before
             if (!attributesLoaded) {
+                if (isConnectionClosed()) {
+                    attributesLoaded = true;
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                        LOGGER.log(
+                                Level.FINE,
+                                "Skipping lazy attribute load for table {0} because JDBC connection is closed.",
+                                this);
+                    }
+                    return attributes;
+                }
                 attributes.addAll(jdbcHelper.getColumnsByTable(connection, this));
                 attributesLoaded = true;
             }
@@ -120,6 +136,16 @@ public class JdbcTableMetadata extends EntityMetadata implements JdbcConnectable
     public List<RelationMetadata> getRelations() {
         try {
             if (!relationsLoaded) {
+                if (isConnectionClosed()) {
+                    relationsLoaded = true;
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                        LOGGER.log(
+                                Level.FINE,
+                                "Skipping lazy relation load for table {0} because JDBC connection is closed.",
+                                this);
+                    }
+                    return relations;
+                }
                 relations.addAll(jdbcHelper.getRelationsByTable(connection, this));
                 relationsLoaded = true;
             }
@@ -143,5 +169,16 @@ public class JdbcTableMetadata extends EntityMetadata implements JdbcConnectable
 
     JdbcHelper getJdbcHelper() {
         return jdbcHelper;
+    }
+
+    private boolean isConnectionClosed() {
+        if (connection == null) {
+            return true;
+        }
+        try {
+            return connection.isClosed();
+        } catch (SQLException e) {
+            return true;
+        }
     }
 }

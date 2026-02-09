@@ -204,6 +204,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
     private final Map<TableId, SortedMap<JdbcForeignKeyConstraintMetadata, Collection<JdbcForeignKeyColumnMetadata>>>
             exportedKeysCache = new HashMap<>();
     private final Map<IndexKey, SortedMap<String, Collection<String>>> indexCache = new HashMap<>();
+    private final Map<TableId, JdbcTableMetadata> tableRegistry = new HashMap<>();
     private final Object preloadStateLock = new Object();
     private final Set<String> preloadedSchemas = new HashSet<>();
     private boolean allSchemasPreloaded;
@@ -338,6 +339,7 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
         List<JdbcTableMetadata> tables = loadSchemaTablesPostgres(connection, schema);
         preloadSchemaMetadata(connection, schema, tables);
         addCrossSchemaTablesFromCaches(connection, schema, tables);
+        registerTables(tables);
         return tables;
     }
 
@@ -405,7 +407,9 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
             return Collections.emptyList();
         }
         LOGGER.log(Level.FINE, "Using PostgreSQL bulk metadata queries for all schemas.");
-        return loadAllTablesPostgres(connection);
+        List<JdbcTableMetadata> tables = loadAllTablesPostgres(connection);
+        registerTables(tables);
+        return tables;
     }
 
     @Override
@@ -531,7 +535,9 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                         type = getCardinality(metaData, table, key);
                         cardinalityByConstraint.put(key, type);
                     }
-                    JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, aFkColumn);
+                    JdbcForeignKeyColumnMetadata canonicalFkColumn =
+                            canonicalizeRelationColumns(connection, table, aFkColumn);
+                    JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, canonicalFkColumn);
                     relations.add(relation);
                     table.addRelation(relation);
                 }
@@ -551,7 +557,9 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                 while (iFkColumns.hasNext()) {
                     JdbcForeignKeyColumnMetadata aFkColumn = iFkColumns.next();
                     DomainRelationType type = DomainRelationType.ONEMANY;
-                    JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, aFkColumn);
+                    JdbcForeignKeyColumnMetadata canonicalFkColumn =
+                            canonicalizeRelationColumns(connection, table, aFkColumn);
+                    JdbcRelationMetadata relation = new JdbcRelationMetadata(key.getName(), type, canonicalFkColumn);
                     relations.add(relation);
                     table.addRelation(relation);
                 }
@@ -941,6 +949,61 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
             indexCache.putIfAbsent(new IndexKey(id, true, true), new TreeMap<>());
             indexCache.putIfAbsent(new IndexKey(id, true, false), new TreeMap<>());
         }
+    }
+
+    private JdbcForeignKeyColumnMetadata canonicalizeRelationColumns(
+            Connection connection, JdbcTableMetadata ownerTable, JdbcForeignKeyColumnMetadata fkColumn) {
+        if (fkColumn == null) {
+            return null;
+        }
+        JdbcColumnMetadata relatedColumn = fkColumn.getRelatedColumn();
+        if (relatedColumn == null || !(relatedColumn.getEntity() instanceof JdbcTableMetadata)) {
+            return fkColumn;
+        }
+        JdbcTableMetadata rawRelatedTable = (JdbcTableMetadata) relatedColumn.getEntity();
+        JdbcTableMetadata canonicalOwner = registerTable(ownerTable);
+        JdbcTableMetadata canonicalRelated = resolveRegisteredTable(connection, rawRelatedTable);
+        JdbcColumnMetadata canonicalRelatedColumn = new JdbcColumnMetadata(
+                canonicalRelated, relatedColumn.getName(), relatedColumn.getType(), relatedColumn.isIdentifier());
+        return new JdbcForeignKeyColumnMetadata(
+                canonicalOwner, fkColumn.getName(), fkColumn.getType(), canonicalRelatedColumn);
+    }
+
+    private JdbcTableMetadata resolveRegisteredTable(Connection connection, JdbcTableMetadata table) {
+        if (table == null) {
+            return null;
+        }
+        TableId id = tableId(table);
+        JdbcTableMetadata registered = tableRegistry.get(id);
+        if (registered != null) {
+            return registered;
+        }
+        JdbcTableMetadata created =
+                new JdbcTableMetadata(connection, table.getCatalog(), table.getSchema(), table.getName(), this);
+        tableRegistry.put(id, created);
+        return created;
+    }
+
+    private void registerTables(List<JdbcTableMetadata> tables) {
+        if (tables == null) {
+            return;
+        }
+        for (JdbcTableMetadata table : tables) {
+            registerTable(table);
+        }
+    }
+
+    private JdbcTableMetadata registerTable(JdbcTableMetadata table) {
+        if (table == null) {
+            return null;
+        }
+        TableId id = tableId(table);
+        JdbcTableMetadata existing = tableRegistry.get(id);
+        if (existing != null) {
+            return existing;
+        }
+        tableRegistry.put(id, table);
+        return table;
     }
 
     private List<JdbcTableMetadata> loadSchemaTablesPostgres(Connection connection, String schema) throws Exception {
