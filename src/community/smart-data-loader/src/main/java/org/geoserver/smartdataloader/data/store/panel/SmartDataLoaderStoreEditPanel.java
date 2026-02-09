@@ -48,6 +48,7 @@ import org.geoserver.smartdataloader.metadata.DataStoreMetadataFactory;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelperFactory;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcTableMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.VirtualFkJdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCache;
 import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCacheSupport;
@@ -481,14 +482,33 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
      */
     private List<String> getAvailableRootEntities(DataStoreInfo ds) {
         DataStoreMetadata dsm = this.getDataStoreMetadata(ds);
+        String defaultSchema = resolveDatastoreSchema(ds);
         @SuppressWarnings("unchecked")
         List<String> choiceList = new ArrayList<>();
         List<EntityMetadata> entities = dsm.getDataStoreEntities();
         for (EntityMetadata e : entities) {
+            if (defaultSchema != null && e instanceof JdbcTableMetadata) {
+                String entitySchema = ((JdbcTableMetadata) e).getSchema();
+                if (!defaultSchema.equals(entitySchema)) {
+                    continue;
+                }
+            }
             String name = e.getName();
             choiceList.add(name);
         }
         return choiceList;
+    }
+
+    private String resolveDatastoreSchema(DataStoreInfo ds) {
+        if (ds == null || ds.getConnectionParameters() == null) {
+            return null;
+        }
+        Object schemaParam = ds.getConnectionParameters().get("schema");
+        if (schemaParam == null) {
+            return null;
+        }
+        String schema = schemaParam.toString().trim();
+        return schema.isEmpty() ? null : schema;
     }
 
     /** Helper method to get Postgis-related DataStoreMetadata. */
