@@ -217,6 +217,8 @@
           <excludes>
             <exclude>**/onlineTest/*.java</exclude>
             <exclude>**/DefaultGeometryTest.java</exclude>
+            <!-- This module forces app-schema.joining=true -->
+            <exclude>**/IdFunctionWfsTest.java</exclude>
             <exclude>${test.exclude.pattern}</exclude>
           </excludes>
           <argLine>-Xmx${test.maxHeapSize} -enableassertions ${jvm.opts}
