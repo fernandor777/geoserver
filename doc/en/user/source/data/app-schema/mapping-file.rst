@@ -141,6 +141,21 @@ The ``typeMappings`` section is the heart of the app-schema module. It defines t
     * a table or view name, lowercase for PostGIS, uppercase for Oracle.
     * a property file name (without the .properties suffix)
 
+* ``sourceDatabaseSchema`` is an optional database schema name for the ``sourceType``. Use it when the source table/view
+  is not in the default schema configured in the data store, or when chained mappings use tables in different schemas
+  of the same database. For example::
+
+    <FeatureTypeMapping>
+        <sourceDataStore>public</sourceDataStore>
+        <sourceDatabaseSchema>myschema</sourceDatabaseSchema>
+        <sourceType>temp_connex</sourceType>
+        <targetElement>gsmlbh:TempConnexFeature</targetElement>
+        ...
+    </FeatureTypeMapping>
+
+  When :ref:`app-schema.joining` is enabled and your chained mappings span multiple schemas, also enable
+  ``app-schema.crossSchemaJoining=true`` in ``app-schema.properties``.
+
 * ``targetElement`` is the element name in the target application schema. This is the same as the WFS feature type name.
 
 * ``isDenormalised`` is an optional tag (default true) to indicate whether this type contains denormalised data or not. If data is not denormalised, then app-schema will build a more efficient query to apply the global feature limit.  When combined with a low global feature limit (via `Services --> WFS`), setting this option to false can prevent unnecessary processing and database lookups from taking place.

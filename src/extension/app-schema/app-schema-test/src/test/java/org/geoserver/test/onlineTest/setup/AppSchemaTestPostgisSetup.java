@@ -9,9 +9,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.geotools.api.feature.IllegalAttributeException;
 import org.geotools.api.feature.Property;
@@ -34,6 +36,13 @@ import org.locationtech.jts.io.WKTWriter;
 public class AppSchemaTestPostgisSetup extends ReferenceDataPostgisSetup {
     /** Database schema to be used for postgis test database so they are isolated. */
     public static final String ONLINE_DB_SCHEMA = "appschematest";
+
+    /**
+     * Marker to route one .properties fixture file to a custom schema.
+     *
+     * <p>Format: {@code <schemaName>__SCHEMA__<fileName>.properties}
+     */
+    public static final String SCHEMA_MARKER = "__SCHEMA__";
 
     /** Mapping file database parameters */
     public static String DB_PARAMS = "<parameters>" //
@@ -116,18 +125,29 @@ public class AppSchemaTestPostgisSetup extends ReferenceDataPostgisSetup {
     private void createTables(Map<String, File> propertyFiles, boolean createPrimaryKey)
             throws IllegalAttributeException, NoSuchElementException, IOException {
         StringBuffer buf = new StringBuffer();
-        // drop schema if exists to start clean
-        buf.append("DROP SCHEMA IF EXISTS ").append(ONLINE_DB_SCHEMA).append(" CASCADE;\n");
-        buf.append("CREATE SCHEMA ").append(ONLINE_DB_SCHEMA).append(";\n");
+        // drop schemas if they exist to start clean
+        Set<String> schemasToCreate = new LinkedHashSet<>();
+        schemasToCreate.add(ONLINE_DB_SCHEMA);
+        for (String fileName : propertyFiles.keySet()) {
+            schemasToCreate.add(getSchemaForPropertyFile(fileName));
+        }
+        for (String schemaName : schemasToCreate) {
+            buf.append("DROP SCHEMA IF EXISTS ").append(schemaName).append(" CASCADE;\n");
+        }
+        for (String schemaName : schemasToCreate) {
+            buf.append("CREATE SCHEMA ").append(schemaName).append(";\n");
+        }
         for (String fileName : propertyFiles.keySet()) {
             File file = new File(propertyFiles.get(fileName), fileName);
+            String schemaName = getSchemaForPropertyFile(fileName);
 
             try (PropertyFeatureReader reader = new PropertyFeatureReader("test", file)) {
                 SimpleFeatureType schema = reader.getFeatureType();
-                String tableName = schema.getName().getLocalPart().toUpperCase();
+                String typeName = getTypeNameForPropertyFile(fileName, schema.getTypeName());
+                String tableName = typeName.toUpperCase();
                 // create the table
                 buf.append("CREATE TABLE ")
-                        .append(ONLINE_DB_SCHEMA)
+                        .append(schemaName)
                         .append(".\"")
                         .append(tableName)
                         .append("\"(");
@@ -157,7 +177,7 @@ public class AppSchemaTestPostgisSetup extends ReferenceDataPostgisSetup {
                     j++;
                 }
                 // Add numeric PK for sorting
-                String pkFieldName = schema.getTypeName() + "_PKEY";
+                String pkFieldName = typeName + "_PKEY";
                 if (createPrimaryKey) {
                     fieldNames[j] = pkFieldName;
                     createParams.add("\"" + pkFieldName + "\" TEXT");
@@ -166,7 +186,7 @@ public class AppSchemaTestPostgisSetup extends ReferenceDataPostgisSetup {
                 buf.append(");\n");
                 if (createPrimaryKey) {
                     buf.append("ALTER TABLE "
-                            + ONLINE_DB_SCHEMA
+                            + schemaName
                             + ".\""
                             + tableName
                             + "\" ADD CONSTRAINT "
@@ -178,9 +198,7 @@ public class AppSchemaTestPostgisSetup extends ReferenceDataPostgisSetup {
 
                 // add geometry columns
                 for (GeometryDescriptor geom : geoms) {
-                    buf.append("SELECT AddGeometryColumn ('")
-                            .append(ONLINE_DB_SCHEMA)
-                            .append("', ");
+                    buf.append("SELECT AddGeometryColumn ('").append(schemaName).append("', ");
                     buf.append("'").append(tableName).append("', ");
                     buf.append("'").append(geom.getName().toString()).append("', ");
                     int srid = getSrid(geom.getType());
@@ -203,7 +221,7 @@ public class AppSchemaTestPostgisSetup extends ReferenceDataPostgisSetup {
                 FeatureId id;
                 while (reader.hasNext()) {
                     buf.append("INSERT INTO ")
-                            .append(ONLINE_DB_SCHEMA)
+                            .append(schemaName)
                             .append(".\"")
                             .append(tableName)
                             .append("\"(\"");
@@ -252,6 +270,28 @@ public class AppSchemaTestPostgisSetup extends ReferenceDataPostgisSetup {
                 this.sql = buf.toString();
             }
         }
+    }
+
+    private String getSchemaForPropertyFile(String fileName) {
+        int markerIndex = fileName.indexOf(SCHEMA_MARKER);
+        if (markerIndex > 0) {
+            return fileName.substring(0, markerIndex);
+        }
+        return ONLINE_DB_SCHEMA;
+    }
+
+    private String getTypeNameForPropertyFile(String fileName, String defaultTypeName) {
+        int markerIndex = fileName.indexOf(SCHEMA_MARKER);
+        if (markerIndex > 0) {
+            String suffix = fileName.substring(markerIndex + SCHEMA_MARKER.length());
+            if (suffix.endsWith(".properties")) {
+                suffix = suffix.substring(0, suffix.length() - ".properties".length());
+            }
+            if (!suffix.isEmpty()) {
+                return suffix;
+            }
+        }
+        return defaultTypeName;
     }
 
     @Override
