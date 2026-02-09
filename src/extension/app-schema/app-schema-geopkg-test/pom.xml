@@ -217,6 +217,7 @@
             <exclude>**/DefaultGeometryTest</exclude>
             <!-- This module forces app-schema.joining=true -->
             <exclude>**/IdFunctionWfsTest.java</exclude>
+            <exclude>**/InterSchemaFeatureChainingTest.java</exclude>
             <exclude>**/BBox3DTest</exclude>
             <exclude>**/GeoJsonOutputFormatWfsTest</exclude>
             <exclude>**/PropertyEncodingOrderTest</exclude>

@@ -289,6 +289,7 @@
                 <exclude>**/GetFeatureNumberMatchedWithoutPrimaryKeyGMLTest.java</exclude>
                 <exclude>**/FeatureChainingWfsTest.java</exclude>
                 <exclude>**/NoIdExpressionTest.java</exclude>
+                <exclude>**/InterSchemaFeatureChainingTest.java</exclude>
               </excludes>
               <argLine>-Xmx${test.maxHeapSize} -enableassertions ${jvm.opts}
                                 -Djava.awt.headless=${java.awt.headless} -DquietTests=${quietTests}</argLine>
