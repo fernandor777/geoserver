@@ -73,10 +73,6 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             new ParamResourceModel("PostGisSmartAppSchemaStoreEditPanel.rootentities", this);
     private ParamResourceModel domainmodelResource =
             new ParamResourceModel("PostGisSmartAppSchemaStoreEditPanel.domainmodel", this);
-    private ParamResourceModel exclusionsResource =
-            new ParamResourceModel("PostGisSmartAppSchemaStoreEditPanel.exclusions", this);
-    private ParamResourceModel datastorenameResource =
-            new ParamResourceModel("PostGisSmartAppSchemaStoreEditPanel.datastorename", this);
 
     // view components
     private NestedTreePanel domainModelTree;
@@ -440,11 +436,12 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     protected void buildHiddenParametersPanel(final IModel model) {
+        IModel<String> hiddenLabelModel = Model.of("");
         IModel iModel = new PropertyModel(model, "connectionParameters");
         exclusions = new TextParamPanel(
                 "exclusions",
                 new MapModel(iModel, SmartDataLoaderDataAccessFactory.DOMAIN_MODEL_EXCLUSIONS.key),
-                exclusionsResource,
+                hiddenLabelModel,
                 false);
         exclusions.setOutputMarkupId(true);
         exclusions.getFormComponent().setEnabled(false);
@@ -455,7 +452,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         datastorename = new TextParamPanel(
                 "datastorename",
                 new MapModel(iModel, SmartDataLoaderDataAccessFactory.DATASTORE_NAME.key),
-                datastorenameResource,
+                hiddenLabelModel,
                 false);
         datastorename.setOutputMarkupId(true);
         datastorename.getFormComponent().setEnabled(false);
