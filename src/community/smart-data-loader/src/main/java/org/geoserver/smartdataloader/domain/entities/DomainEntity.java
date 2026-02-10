@@ -6,6 +6,7 @@ package org.geoserver.smartdataloader.domain.entities;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.WordUtils;
 import org.geoserver.smartdataloader.domain.DomainModelVisitor;
@@ -57,11 +58,60 @@ public final class DomainEntity {
     }
 
     public void add(DomainEntitySimpleAttribute attribute) {
-        attributes.add(attribute);
+        if (attribute == null) {
+            return;
+        }
+        boolean alreadyPresent =
+                attributes.stream().anyMatch(existing -> Objects.equals(existing.getName(), attribute.getName()));
+        if (!alreadyPresent) {
+            attributes.add(attribute);
+        }
     }
 
     public void add(DomainRelation relation) {
-        relations.add(relation);
+        if (relation == null) {
+            return;
+        }
+        boolean alreadyPresent = relations.stream().anyMatch(existing -> isSameRelation(existing, relation));
+        if (!alreadyPresent) {
+            relations.add(relation);
+        }
+    }
+
+    private static boolean isSameRelation(DomainRelation left, DomainRelation right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        String leftContaining =
+                left.getContainingEntity() != null ? left.getContainingEntity().getName() : null;
+        String rightContaining = right.getContainingEntity() != null
+                ? right.getContainingEntity().getName()
+                : null;
+        String leftDestination = left.getDestinationEntity() != null
+                ? left.getDestinationEntity().getName()
+                : null;
+        String rightDestination = right.getDestinationEntity() != null
+                ? right.getDestinationEntity().getName()
+                : null;
+        String leftContainingKey = left.getContainingKeyAttribute() != null
+                ? left.getContainingKeyAttribute().getName()
+                : null;
+        String rightContainingKey = right.getContainingKeyAttribute() != null
+                ? right.getContainingKeyAttribute().getName()
+                : null;
+        String leftDestinationKey = left.getDestinationKeyAttribute() != null
+                ? left.getDestinationKeyAttribute().getName()
+                : null;
+        String rightDestinationKey = right.getDestinationKeyAttribute() != null
+                ? right.getDestinationKeyAttribute().getName()
+                : null;
+        return Objects.equals(leftContaining, rightContaining)
+                && Objects.equals(leftDestination, rightDestination)
+                && Objects.equals(leftContainingKey, rightContainingKey)
+                && Objects.equals(leftDestinationKey, rightDestinationKey);
     }
 
     public void accept(DomainModelVisitor visitor, boolean isRoot) {

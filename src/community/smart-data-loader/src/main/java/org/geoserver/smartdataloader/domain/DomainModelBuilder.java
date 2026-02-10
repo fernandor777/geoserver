@@ -36,6 +36,7 @@ public final class DomainModelBuilder {
 
     private final Map<EntityMetadata, DomainEntity> domainEntitiesIndex = new HashMap<>();
     private final Set<EntityMetadata> visitedEntities = new HashSet<>();
+    private final Set<EntityMetadata> initializedEntities = new HashSet<>();
 
     public DomainModelBuilder(DataStoreMetadata dataStoreMetadata, DomainModelConfig domainModelConfig) {
         this.dataStoreMetadata = dataStoreMetadata;
@@ -81,12 +82,14 @@ public final class DomainModelBuilder {
         if (resolvedMetadata == null) {
             throw new RuntimeException("Could not find metadata for entity");
         }
-        boolean isVisited = visitedEntities.contains(resolvedMetadata);
-        visitedEntities.add(resolvedMetadata);
         // retrieve the metadata for our entity
         // let's try to retrieve the domain entity or create it if needed
         DomainEntity entity = indexEntity(resolvedMetadata);
-        if (!isVisited) {
+        if (initializedEntities.contains(resolvedMetadata) || visitedEntities.contains(resolvedMetadata)) {
+            return entity;
+        }
+        visitedEntities.add(resolvedMetadata);
+        try {
             // let's add the relations of our entity
             resolvedMetadata.getRelations().forEach(relation -> {
                 if (fromRelation == null
@@ -108,6 +111,8 @@ public final class DomainModelBuilder {
                     entity.add(domainAttribute);
                 }
             });
+            initializedEntities.add(resolvedMetadata);
+        } finally {
             visitedEntities.remove(resolvedMetadata);
         }
         return entity;
