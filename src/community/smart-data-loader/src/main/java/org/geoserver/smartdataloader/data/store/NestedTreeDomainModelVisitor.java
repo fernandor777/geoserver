@@ -59,9 +59,14 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
         }
         // Keep relation selectable even if the destination entity subtree was already visited elsewhere.
         if (isVisited(relation.getDestinationEntity())) {
-            String destinationName = relation.getDestinationEntity().getName();
-            if (findChildNode(currentTreeNode, destinationName) == null) {
-                addRelationReferenceNode(currentTreeNode, destinationName);
+            DomainEntity destinationEntity = relation.getDestinationEntity();
+            String destinationName = destinationEntity.getName();
+            DefaultMutableTreeNode destinationNode = findChildNode(currentTreeNode, destinationName);
+            if (destinationNode == null) {
+                destinationNode = addRelationReferenceNode(currentTreeNode, destinationName);
+            }
+            if (destinationNode != null) {
+                addMissingAttributeNodes(destinationNode, destinationEntity);
             }
         }
     }
@@ -99,6 +104,20 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
         DefaultMutableTreeNode node = new DefaultMutableTreeNode(new TreeNodeValue(childNode, true));
         parent.add(node);
         return node;
+    }
+
+    private void addMissingAttributeNodes(DefaultMutableTreeNode parent, DomainEntity destinationEntity) {
+        if (parent == null || destinationEntity == null || destinationEntity.getAttributes() == null) {
+            return;
+        }
+        for (DomainEntitySimpleAttribute attribute : destinationEntity.getAttributes()) {
+            if (attribute == null || attribute.getName() == null) {
+                continue;
+            }
+            if (findChildNode(parent, attribute.getName()) == null) {
+                addNodes(parent, attribute.getName());
+            }
+        }
     }
 
     /** User object used to tag a node while preserving the displayed label. */

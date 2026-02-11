@@ -43,6 +43,7 @@ public class NestedTreeDomainModelVisitorTest {
         NestedTreeDomainModelVisitor.TreeNodeValue value =
                 (NestedTreeDomainModelVisitor.TreeNodeValue) assorbNode.getUserObject();
         assertTrue(value.isRelationReference());
+        assertNotNull(findChild(assorbNode, "key"));
     }
 
     private DomainRelation relation(

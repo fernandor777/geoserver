@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -398,24 +399,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
                 domainModelTree.add(new AjaxEventBehavior(("click")) {
                     @Override
                     protected void onEvent(AjaxRequestTarget target) {
-                        // build list of exclusions based on tree selection
-                        StringBuilder stringBuilder = new StringBuilder();
-                        for (DefaultMutableTreeNode node : nodes) {
-                            if (!checkedNodes.contains(node)) {
-                                if (node.getParent() != null) {
-                                    stringBuilder.append(node.getParent().toString() + "." + node.toString());
-                                } else {
-                                    stringBuilder.append(node.toString());
-                                }
-                                stringBuilder.append(",");
-                            }
-                        }
-                        String exclusionList = stringBuilder.toString();
-                        int size = exclusionList.length();
-                        String fullExclusionList = "";
-                        if (size > 0) {
-                            fullExclusionList = exclusionList.substring(0, size - 1);
-                        }
+                        String fullExclusionList = buildExclusionList(nodes, checkedNodes);
                         // set exclusionList value to exclusionsPanel (model)
                         exclusions.getFormComponent().modelChanging();
                         smartAppSchemaDataStoreInfo
@@ -483,6 +467,48 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             }
         }
         return checkedNodes;
+    }
+
+    private String buildExclusionList(Set<DefaultMutableTreeNode> nodes, Set<DefaultMutableTreeNode> checkedNodes) {
+        if (nodes == null || nodes.isEmpty()) {
+            return "";
+        }
+        // A logical object can appear multiple times in the tree (different relation branches):
+        // consider it excluded only when all corresponding nodes are unchecked.
+        Map<String, Boolean> inclusionByObjectCode = new LinkedHashMap<>();
+        for (DefaultMutableTreeNode node : nodes) {
+            String objectCode = buildObjectCode(node);
+            if (objectCode == null || objectCode.trim().isEmpty()) {
+                continue;
+            }
+            boolean isChecked = checkedNodes != null && checkedNodes.contains(node);
+            if (isChecked) {
+                inclusionByObjectCode.put(objectCode, true);
+            } else if (!inclusionByObjectCode.containsKey(objectCode)) {
+                inclusionByObjectCode.put(objectCode, false);
+            }
+        }
+        StringBuilder exclusionsBuilder = new StringBuilder();
+        for (Map.Entry<String, Boolean> entry : inclusionByObjectCode.entrySet()) {
+            if (Boolean.TRUE.equals(entry.getValue())) {
+                continue;
+            }
+            if (exclusionsBuilder.length() > 0) {
+                exclusionsBuilder.append(",");
+            }
+            exclusionsBuilder.append(entry.getKey());
+        }
+        return exclusionsBuilder.toString();
+    }
+
+    private String buildObjectCode(DefaultMutableTreeNode node) {
+        if (node == null) {
+            return null;
+        }
+        if (node.getParent() != null) {
+            return node.getParent().toString() + "." + node.toString();
+        }
+        return node.toString();
     }
 
     /**
