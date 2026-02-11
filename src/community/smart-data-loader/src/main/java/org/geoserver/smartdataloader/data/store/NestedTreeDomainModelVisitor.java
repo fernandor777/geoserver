@@ -4,6 +4,7 @@
  */
 package org.geoserver.smartdataloader.data.store;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -53,6 +54,16 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
     @Override
     public void visitDomainRelation(DomainRelation relation) {
         currentTreeNode = entities.get(relation.getContainingEntity());
+        if (currentTreeNode == null || relation == null || relation.getDestinationEntity() == null) {
+            return;
+        }
+        // Keep relation selectable even if the destination entity subtree was already visited elsewhere.
+        if (isVisited(relation.getDestinationEntity())) {
+            String destinationName = relation.getDestinationEntity().getName();
+            if (findChildNode(currentTreeNode, destinationName) == null) {
+                addRelationReferenceNode(currentTreeNode, destinationName);
+            }
+        }
     }
 
     public DefaultTreeModel getTreeModel() {
@@ -66,5 +77,49 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
             parent.add(newNode);
         }
         return newNode;
+    }
+
+    private DefaultMutableTreeNode findChildNode(DefaultMutableTreeNode parent, String childName) {
+        if (parent == null || childName == null) {
+            return null;
+        }
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            Object child = parent.getChildAt(i);
+            if (child instanceof DefaultMutableTreeNode) {
+                DefaultMutableTreeNode childNode = (DefaultMutableTreeNode) child;
+                if (childName.equals(childNode.toString())) {
+                    return childNode;
+                }
+            }
+        }
+        return null;
+    }
+
+    private DefaultMutableTreeNode addRelationReferenceNode(DefaultMutableTreeNode parent, String childNode) {
+        DefaultMutableTreeNode node = new DefaultMutableTreeNode(new TreeNodeValue(childNode, true));
+        parent.add(node);
+        return node;
+    }
+
+    /** User object used to tag a node while preserving the displayed label. */
+    public static final class TreeNodeValue implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final String label;
+        private final boolean relationReference;
+
+        public TreeNodeValue(String label, boolean relationReference) {
+            this.label = label;
+            this.relationReference = relationReference;
+        }
+
+        public boolean isRelationReference() {
+            return relationReference;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 }

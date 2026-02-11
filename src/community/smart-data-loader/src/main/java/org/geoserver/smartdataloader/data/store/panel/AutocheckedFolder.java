@@ -6,6 +6,7 @@ package org.geoserver.smartdataloader.data.store.panel;
 
 import java.util.Iterator;
 import java.util.Set;
+import javax.swing.tree.DefaultMutableTreeNode;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.extensions.markup.html.repeater.tree.AbstractTree;
 import org.apache.wicket.extensions.markup.html.repeater.tree.ITreeProvider;
@@ -16,6 +17,7 @@ import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.JavaScriptHeaderItem;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.request.resource.PackageResourceReference;
+import org.geoserver.smartdataloader.data.store.NestedTreeDomainModelVisitor;
 
 /** CheckedFolder that includes javascript code that allows to autocheck nodes based on hierarchy. */
 @SuppressWarnings("serial")
@@ -57,6 +59,15 @@ public class AutocheckedFolder<T> extends CheckedFolder<T> {
 
         target.appendJavaScript(
                 ";CheckAncestorsAndChildren.checkAncestors('" + getMarkupId() + "'," + nodeChecked + ");");
+    }
+
+    @Override
+    protected String getOtherStyleClass(T object) {
+        if (isRelationReferenceLeaf(object)) {
+            // Keep relation-reference leaves visually consistent with entity nodes.
+            return getClosedStyleClass();
+        }
+        return super.getOtherStyleClass(object);
     }
 
     @Override
@@ -110,6 +121,19 @@ public class AutocheckedFolder<T> extends CheckedFolder<T> {
         }
 
         return false;
+    }
+
+    private boolean isRelationReferenceLeaf(T object) {
+        if (!(object instanceof DefaultMutableTreeNode)) {
+            return false;
+        }
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) object;
+        Object userObject = node.getUserObject();
+        if (!(userObject instanceof NestedTreeDomainModelVisitor.TreeNodeValue)) {
+            return false;
+        }
+        NestedTreeDomainModelVisitor.TreeNodeValue value = (NestedTreeDomainModelVisitor.TreeNodeValue) userObject;
+        return value.isRelationReference();
     }
 
     class CheckModel extends AbstractCheckBoxModel {
