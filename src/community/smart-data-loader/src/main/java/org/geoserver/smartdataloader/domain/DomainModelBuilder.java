@@ -97,6 +97,15 @@ public final class DomainModelBuilder {
             // let's add the relations of our entity
             resolvedMetadata.getRelations().forEach(relation -> {
                 if (fromRelation == null || !relationInvolvesEntity(relation, fromRelation.getContainingEntity())) {
+                    if (targetsVisitedEntity(entity, relation)) {
+                        if (LOGGER.isLoggable(java.util.logging.Level.FINER)) {
+                            LOGGER.log(
+                                    java.util.logging.Level.FINER,
+                                    "Skipping recursive relation from {0} to an already visited entity.",
+                                    entity.getName());
+                        }
+                        return;
+                    }
                     DomainRelation domainRelation = buildDomainRelation(entity, relation, fromRelation);
                     entity.add(domainRelation);
                 }
@@ -233,6 +242,29 @@ public final class DomainModelBuilder {
             return true;
         }
         return isSameEntity(relation.getDestinationAttribute().getEntity(), entity);
+    }
+
+    private boolean targetsVisitedEntity(DomainEntity containingEntity, RelationMetadata relation) {
+        if (containingEntity == null || relation == null) {
+            return false;
+        }
+        EntityMetadata sourceEntity = relation.getSourceAttribute() != null
+                ? relation.getSourceAttribute().getEntity()
+                : null;
+        EntityMetadata destinationEntity = relation.getDestinationAttribute() != null
+                ? relation.getDestinationAttribute().getEntity()
+                : null;
+        EntityMetadata targetEntity = null;
+        if (isSameEntity(sourceEntity, containingEntity)) {
+            targetEntity = destinationEntity;
+        } else if (isSameEntity(destinationEntity, containingEntity)) {
+            targetEntity = sourceEntity;
+        }
+        if (targetEntity == null) {
+            return false;
+        }
+        EntityMetadata resolvedTarget = resolveEntityMetadata(targetEntity);
+        return resolvedTarget != null && visitedEntities.contains(resolvedTarget);
     }
 
     /**
