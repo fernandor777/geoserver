@@ -37,10 +37,12 @@ public final class DomainModelBuilder {
     private final Map<EntityMetadata, DomainEntity> domainEntitiesIndex = new HashMap<>();
     private final Set<EntityMetadata> visitedEntities = new HashSet<>();
     private final Set<EntityMetadata> initializedEntities = new HashSet<>();
+    private final Set<String> duplicatedEntityNames;
 
     public DomainModelBuilder(DataStoreMetadata dataStoreMetadata, DomainModelConfig domainModelConfig) {
         this.dataStoreMetadata = dataStoreMetadata;
         this.domainModelConfig = domainModelConfig;
+        this.duplicatedEntityNames = findDuplicatedEntityNames(dataStoreMetadata);
     }
 
     public DomainModel buildDomainModel() {
@@ -67,7 +69,9 @@ public final class DomainModelBuilder {
             if (entityMetadata instanceof JdbcTableMetadata) {
                 schema = ((JdbcTableMetadata) entityMetadata).getSchema();
             }
-            entity = new DomainEntity(entityMetadata.getName(), domainModelConfig.getEntitiesPrefix(), schema);
+            String gmlEntityName = resolveGmlEntityName(entityMetadata, schema);
+            entity = new DomainEntity(
+                    entityMetadata.getName(), domainModelConfig.getEntitiesPrefix(), schema, gmlEntityName);
             domainEntitiesIndex.put(entityMetadata, entity);
         } else {
             // we already have our entity
@@ -92,9 +96,7 @@ public final class DomainModelBuilder {
         try {
             // let's add the relations of our entity
             resolvedMetadata.getRelations().forEach(relation -> {
-                if (fromRelation == null
-                        || !relation.participatesInRelation(
-                                fromRelation.getContainingEntity().getName())) {
+                if (fromRelation == null || !relationInvolvesEntity(relation, fromRelation.getContainingEntity())) {
                     DomainRelation domainRelation = buildDomainRelation(entity, relation, fromRelation);
                     entity.add(domainRelation);
                 }
@@ -123,7 +125,7 @@ public final class DomainModelBuilder {
         // retrieve the source and targeted attributes of the relation
         AttributeMetadata sourceAttribute = relationMetadata.getSourceAttribute();
         AttributeMetadata destinationAttribute = relationMetadata.getDestinationAttribute();
-        if (destinationAttribute.getEntity().getName().equals(containingDomainEntity.getName())) {
+        if (isSameEntity(destinationAttribute.getEntity(), containingDomainEntity)) {
             // the containing entity was actually the destination, we need to swap the attributes
             sourceAttribute = relationMetadata.getDestinationAttribute();
             destinationAttribute = relationMetadata.getSourceAttribute();
@@ -173,6 +175,64 @@ public final class DomainModelBuilder {
             return false;
         }
         return Objects.equals(left.getCatalog(), right.getCatalog());
+    }
+
+    private Set<String> findDuplicatedEntityNames(DataStoreMetadata metadata) {
+        Set<String> duplicatedNames = new HashSet<>();
+        Map<String, Integer> counts = new HashMap<>();
+        if (metadata == null || metadata.getDataStoreEntities() == null) {
+            return duplicatedNames;
+        }
+        for (EntityMetadata entity : metadata.getDataStoreEntities()) {
+            if (entity == null || entity.getName() == null) {
+                continue;
+            }
+            counts.merge(entity.getName(), 1, Integer::sum);
+        }
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            if (entry.getValue() != null && entry.getValue() > 1) {
+                duplicatedNames.add(entry.getKey());
+            }
+        }
+        return duplicatedNames;
+    }
+
+    private String resolveGmlEntityName(EntityMetadata entityMetadata, String schema) {
+        String name = entityMetadata != null ? entityMetadata.getName() : null;
+        if (name == null) {
+            return null;
+        }
+        if (schema == null || schema.isEmpty()) {
+            return name;
+        }
+        if (!duplicatedEntityNames.contains(name)) {
+            return name;
+        }
+        return schema + "_" + name;
+    }
+
+    private boolean isSameEntity(EntityMetadata metadataEntity, DomainEntity domainEntity) {
+        if (metadataEntity == null || domainEntity == null) {
+            return false;
+        }
+        if (!Objects.equals(metadataEntity.getName(), domainEntity.getName())) {
+            return false;
+        }
+        if (metadataEntity instanceof JdbcTableMetadata) {
+            String metadataSchema = ((JdbcTableMetadata) metadataEntity).getSchema();
+            return Objects.equals(metadataSchema, domainEntity.getSchema());
+        }
+        return true;
+    }
+
+    private boolean relationInvolvesEntity(RelationMetadata relation, DomainEntity entity) {
+        if (relation == null || entity == null) {
+            return false;
+        }
+        if (isSameEntity(relation.getSourceAttribute().getEntity(), entity)) {
+            return true;
+        }
+        return isSameEntity(relation.getDestinationAttribute().getEntity(), entity);
     }
 
     /**

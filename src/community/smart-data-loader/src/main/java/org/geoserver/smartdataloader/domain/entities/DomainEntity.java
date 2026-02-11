@@ -22,19 +22,26 @@ public final class DomainEntity {
     private final GmlInfo gmlInfo;
 
     public DomainEntity(String name, String entityPrefix) {
-        this(name, entityPrefix, null);
+        this(name, entityPrefix, null, name);
     }
 
     public DomainEntity(String name, String entityPrefix, String schema) {
+        this(name, entityPrefix, schema, name);
+    }
+
+    public DomainEntity(String name, String entityPrefix, String schema, String gmlBaseName) {
         if (StringUtils.isBlank(name)) {
             throw new IllegalArgumentException("Entity name cannot be null or empty");
         }
         if (StringUtils.isBlank(entityPrefix)) {
             entityPrefix = "";
         }
+        if (StringUtils.isBlank(gmlBaseName)) {
+            gmlBaseName = name;
+        }
         this.name = name;
         this.schema = StringUtils.isBlank(schema) ? null : schema;
-        this.gmlInfo = new GmlInfo(entityPrefix + name);
+        this.gmlInfo = new GmlInfo(entityPrefix + gmlBaseName);
     }
 
     public String getName() {
@@ -90,11 +97,22 @@ public final class DomainEntity {
         String rightContaining = right.getContainingEntity() != null
                 ? right.getContainingEntity().getName()
                 : null;
+        String leftContainingSchema =
+                left.getContainingEntity() != null ? left.getContainingEntity().getSchema() : null;
+        String rightContainingSchema = right.getContainingEntity() != null
+                ? right.getContainingEntity().getSchema()
+                : null;
         String leftDestination = left.getDestinationEntity() != null
                 ? left.getDestinationEntity().getName()
                 : null;
         String rightDestination = right.getDestinationEntity() != null
                 ? right.getDestinationEntity().getName()
+                : null;
+        String leftDestinationSchema = left.getDestinationEntity() != null
+                ? left.getDestinationEntity().getSchema()
+                : null;
+        String rightDestinationSchema = right.getDestinationEntity() != null
+                ? right.getDestinationEntity().getSchema()
                 : null;
         String leftContainingKey = left.getContainingKeyAttribute() != null
                 ? left.getContainingKeyAttribute().getName()
@@ -109,7 +127,9 @@ public final class DomainEntity {
                 ? right.getDestinationKeyAttribute().getName()
                 : null;
         return Objects.equals(leftContaining, rightContaining)
+                && Objects.equals(leftContainingSchema, rightContainingSchema)
                 && Objects.equals(leftDestination, rightDestination)
+                && Objects.equals(leftDestinationSchema, rightDestinationSchema)
                 && Objects.equals(leftContainingKey, rightContainingKey)
                 && Objects.equals(leftDestinationKey, rightDestinationKey);
     }

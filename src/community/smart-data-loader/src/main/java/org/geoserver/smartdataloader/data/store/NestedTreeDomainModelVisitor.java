@@ -19,7 +19,7 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
     private DefaultTreeModel treeModel;
     private DefaultMutableTreeNode root;
 
-    private Map<String, DefaultMutableTreeNode> entities = new HashMap<>();
+    private Map<DomainEntity, DefaultMutableTreeNode> entities = new HashMap<>();
 
     private DefaultMutableTreeNode currentTreeNode;
 
@@ -30,7 +30,7 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
         if (treeModel == null) {
             root = new DefaultMutableTreeNode(de);
             treeModel = new DefaultTreeModel(root);
-            entities.put(entity.getName(), root);
+            entities.put(entity, root);
             currentTreeNode = root;
         }
     }
@@ -40,7 +40,7 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
         this.visitedEntities.add(entity);
         String de = entity.getName();
         DefaultMutableTreeNode chainedEntity = addNodes(currentTreeNode, de);
-        entities.put(entity.getName(), chainedEntity);
+        entities.put(entity, chainedEntity);
         currentTreeNode = chainedEntity;
     }
 
@@ -52,7 +52,7 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
 
     @Override
     public void visitDomainRelation(DomainRelation relation) {
-        currentTreeNode = entities.get(relation.getContainingEntity().getName());
+        currentTreeNode = entities.get(relation.getContainingEntity());
     }
 
     public DefaultTreeModel getTreeModel() {
