@@ -48,12 +48,16 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "JOIN pg_namespace n ON n.oid = c.relnamespace "
                     + "WHERE n.nspname = ? "
                     + "AND c.relkind IN ('r','p','v','m','f') "
+                    + "AND has_schema_privilege(n.oid, 'USAGE') "
+                    + "AND has_table_privilege(c.oid, 'SELECT') "
                     + "ORDER BY c.relname";
     private static final String POSTGRES_ALL_TABLES_SQL =
             "SELECT n.nspname AS schema_name, c.relname AS table_name, c.relkind AS relkind "
                     + "FROM pg_class c "
                     + "JOIN pg_namespace n ON n.oid = c.relnamespace "
                     + "WHERE c.relkind IN ('r','p','v','m','f') "
+                    + "AND has_schema_privilege(n.oid, 'USAGE') "
+                    + "AND has_table_privilege(c.oid, 'SELECT') "
                     + "ORDER BY n.nspname, c.relname";
     private static final String POSTGRES_COLUMNS_SQL = "SELECT n.nspname AS schema_name, c.relname AS table_name, "
             + "a.attnum AS ordinal_position, a.attname AS column_name, "
@@ -63,8 +67,11 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
             + "JOIN pg_namespace n ON n.oid = c.relnamespace "
             + "WHERE n.nspname = ? "
             + "AND c.relkind IN ('r','p','v','m','f') "
+            + "AND has_schema_privilege(n.oid, 'USAGE') "
+            + "AND has_table_privilege(c.oid, 'SELECT') "
             + "AND a.attnum > 0 "
             + "AND NOT a.attisdropped "
+            + "AND has_column_privilege(c.oid, a.attname, 'SELECT') "
             + "ORDER BY c.relname, a.attnum";
     private static final String POSTGRES_COLUMNS_BY_TABLE_SQL =
             "SELECT n.nspname AS schema_name, c.relname AS table_name, "
@@ -76,8 +83,11 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "WHERE n.nspname = ? "
                     + "AND c.relname = ? "
                     + "AND c.relkind IN ('r','p','v','m','f') "
+                    + "AND has_schema_privilege(n.oid, 'USAGE') "
+                    + "AND has_table_privilege(c.oid, 'SELECT') "
                     + "AND a.attnum > 0 "
                     + "AND NOT a.attisdropped "
+                    + "AND has_column_privilege(c.oid, a.attname, 'SELECT') "
                     + "ORDER BY a.attnum";
     private static final String POSTGRES_PRIMARY_KEYS_SQL =
             "SELECT n.nspname AS schema_name, c.relname AS table_name, con.conname AS pk_name, "
@@ -89,6 +99,9 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum "
                     + "WHERE con.contype = 'p' "
                     + "AND n.nspname = ? "
+                    + "AND has_schema_privilege(n.oid, 'USAGE') "
+                    + "AND has_table_privilege(c.oid, 'SELECT') "
+                    + "AND has_column_privilege(c.oid, a.attname, 'SELECT') "
                     + "ORDER BY c.relname, k.ordinality";
     private static final String POSTGRES_FOREIGN_KEYS_SQL =
             "SELECT nsp.nspname AS table_schema, rel.relname AS table_name, con.conname AS fk_name, "
@@ -109,6 +122,12 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "JOIN pg_attribute fatt ON fatt.attrelid = frel.oid AND fatt.attnum = fu.attnum "
                     + "WHERE con.contype = 'f' "
                     + "AND (nsp.nspname = ? OR fnsp.nspname = ?) "
+                    + "AND has_schema_privilege(nsp.oid, 'USAGE') "
+                    + "AND has_table_privilege(rel.oid, 'SELECT') "
+                    + "AND has_column_privilege(rel.oid, att.attname, 'SELECT') "
+                    + "AND has_schema_privilege(fnsp.oid, 'USAGE') "
+                    + "AND has_table_privilege(frel.oid, 'SELECT') "
+                    + "AND has_column_privilege(frel.oid, fatt.attname, 'SELECT') "
                     + "GROUP BY nsp.nspname, rel.relname, con.conname, fnsp.nspname, frel.relname, con.oid, pk.conname "
                     + "ORDER BY rel.relname, con.conname";
     private static final String POSTGRES_UNIQUE_INDEXES_SQL =
@@ -123,6 +142,9 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "WHERE n.nspname = ? "
                     + "AND i.indisunique = true "
                     + "AND c.relkind IN ('r','p','v','m','f') "
+                    + "AND has_schema_privilege(n.oid, 'USAGE') "
+                    + "AND has_table_privilege(c.oid, 'SELECT') "
+                    + "AND has_column_privilege(c.oid, a.attname, 'SELECT') "
                     + "ORDER BY c.relname, ic.relname, x.ordinality";
     private static final String POSTGRES_TABLES_BY_SCHEMAS_SQL =
             "SELECT n.nspname AS schema_name, c.relname AS table_name, c.relkind AS relkind "
@@ -130,6 +152,8 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "JOIN pg_namespace n ON n.oid = c.relnamespace "
                     + "WHERE n.nspname IN (%s) "
                     + "AND c.relkind IN ('r','p','v','m','f') "
+                    + "AND has_schema_privilege(n.oid, 'USAGE') "
+                    + "AND has_table_privilege(c.oid, 'SELECT') "
                     + "ORDER BY n.nspname, c.relname";
     private static final String POSTGRES_COLUMNS_BY_SCHEMAS_SQL =
             "SELECT n.nspname AS schema_name, c.relname AS table_name, "
@@ -140,8 +164,11 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "JOIN pg_namespace n ON n.oid = c.relnamespace "
                     + "WHERE n.nspname IN (%s) "
                     + "AND c.relkind IN ('r','p','v','m','f') "
+                    + "AND has_schema_privilege(n.oid, 'USAGE') "
+                    + "AND has_table_privilege(c.oid, 'SELECT') "
                     + "AND a.attnum > 0 "
                     + "AND NOT a.attisdropped "
+                    + "AND has_column_privilege(c.oid, a.attname, 'SELECT') "
                     + "ORDER BY n.nspname, c.relname, a.attnum";
     private static final String POSTGRES_PRIMARY_KEYS_BY_SCHEMAS_SQL =
             "SELECT n.nspname AS schema_name, c.relname AS table_name, con.conname AS pk_name, "
@@ -153,6 +180,9 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum "
                     + "WHERE con.contype = 'p' "
                     + "AND n.nspname IN (%s) "
+                    + "AND has_schema_privilege(n.oid, 'USAGE') "
+                    + "AND has_table_privilege(c.oid, 'SELECT') "
+                    + "AND has_column_privilege(c.oid, a.attname, 'SELECT') "
                     + "ORDER BY n.nspname, c.relname, k.ordinality";
     private static final String POSTGRES_FOREIGN_KEYS_BY_SCHEMAS_SQL =
             "SELECT nsp.nspname AS table_schema, rel.relname AS table_name, con.conname AS fk_name, "
@@ -173,6 +203,12 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "JOIN pg_attribute fatt ON fatt.attrelid = frel.oid AND fatt.attnum = fu.attnum "
                     + "WHERE con.contype = 'f' "
                     + "AND (nsp.nspname IN (%s) OR fnsp.nspname IN (%s)) "
+                    + "AND has_schema_privilege(nsp.oid, 'USAGE') "
+                    + "AND has_table_privilege(rel.oid, 'SELECT') "
+                    + "AND has_column_privilege(rel.oid, att.attname, 'SELECT') "
+                    + "AND has_schema_privilege(fnsp.oid, 'USAGE') "
+                    + "AND has_table_privilege(frel.oid, 'SELECT') "
+                    + "AND has_column_privilege(frel.oid, fatt.attname, 'SELECT') "
                     + "GROUP BY nsp.nspname, rel.relname, con.conname, fnsp.nspname, frel.relname, con.oid, pk.conname "
                     + "ORDER BY rel.relname, con.conname";
     private static final String POSTGRES_UNIQUE_INDEXES_BY_SCHEMAS_SQL =
@@ -187,11 +223,20 @@ public class PostgresCatalogJdbcHelper implements JdbcHelper {
                     + "WHERE n.nspname IN (%s) "
                     + "AND i.indisunique = true "
                     + "AND c.relkind IN ('r','p','v','m','f') "
+                    + "AND has_schema_privilege(n.oid, 'USAGE') "
+                    + "AND has_table_privilege(c.oid, 'SELECT') "
+                    + "AND has_column_privilege(c.oid, a.attname, 'SELECT') "
                     + "ORDER BY n.nspname, c.relname, ic.relname, x.ordinality";
-    private static final String POSTGRES_SCHEMAS_SQL = "SELECT nspname AS schema_name "
-            + "FROM pg_namespace "
-            + "WHERE nspname NOT LIKE 'pg_%' "
-            + "AND nspname <> 'information_schema' "
+    private static final String POSTGRES_SCHEMAS_SQL = "SELECT n.nspname AS schema_name "
+            + "FROM pg_namespace n "
+            + "WHERE n.nspname NOT LIKE 'pg_%' "
+            + "AND n.nspname <> 'information_schema' "
+            + "AND has_schema_privilege(n.oid, 'USAGE') "
+            + "AND EXISTS ("
+            + "SELECT 1 FROM pg_class c "
+            + "WHERE c.relnamespace = n.oid "
+            + "AND c.relkind IN ('r','p','v','m','f') "
+            + "AND has_table_privilege(c.oid, 'SELECT')) "
             + "ORDER BY nspname";
 
     private final Map<TableId, List<AttributeMetadata>> columnsCache = new HashMap<>();
