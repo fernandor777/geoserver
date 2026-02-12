@@ -658,7 +658,16 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
 
     private void buildVirtualRelationshipsPanel(final IModel<?> model) {
         IModel<Map<String, Serializable>> paramsModel = new PropertyModel<>(model, "connectionParameters");
-        VirtualRelationshipsPanel panel = new VirtualRelationshipsPanel("virtualRelationships", paramsModel);
+        VirtualRelationshipsPanel panel = new VirtualRelationshipsPanel("virtualRelationships", paramsModel) {
+            @Override
+            protected void onRelationshipsChanged(AjaxRequestTarget target) {
+                IModel<?> connectionParamsModel = new PropertyModel<>(model, "connectionParameters");
+                buildDomainModelTreePanel(connectionParamsModel);
+                if (target != null) {
+                    target.add(domainModelTree);
+                }
+            }
+        };
         panel.setOutputMarkupId(true);
         add(panel);
     }

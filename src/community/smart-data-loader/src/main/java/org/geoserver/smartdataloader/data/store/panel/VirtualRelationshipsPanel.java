@@ -153,7 +153,7 @@ public class VirtualRelationshipsPanel extends Panel {
         return new AjaxLink<Void>(id) {
             @Override
             public void onClick(AjaxRequestTarget target) {
-                removeRelationship(item.getIndex());
+                removeRelationship(item.getIndex(), target);
                 target.add(tableContainer, emptyContainer, feedback);
             }
         };
@@ -181,7 +181,7 @@ public class VirtualRelationshipsPanel extends Panel {
         relationshipModal.show(target);
     }
 
-    private void applyRelationship(VirtualRelationshipBean bean, int index) {
+    private void applyRelationship(VirtualRelationshipBean bean, int index, AjaxRequestTarget target) {
         List<VirtualRelationshipBean> updated = new ArrayList<>();
         List<VirtualRelationshipBean> current = relationshipsModel.getObject();
         if (current != null) {
@@ -199,6 +199,7 @@ public class VirtualRelationshipsPanel extends Panel {
         relationshipsView.removeAll();
         relationshipsView.modelChanged();
         updateVisibility(refreshed);
+        onRelationshipsChanged(target);
     }
 
     private void updateVisibility() {
@@ -239,7 +240,7 @@ public class VirtualRelationshipsPanel extends Panel {
         return beans;
     }
 
-    private void removeRelationship(int index) {
+    private void removeRelationship(int index, AjaxRequestTarget target) {
         List<VirtualRelationshipBean> updated = new ArrayList<>();
         List<VirtualRelationshipBean> current = relationshipsModel.getObject();
         if (current != null) {
@@ -256,6 +257,16 @@ public class VirtualRelationshipsPanel extends Panel {
         relationshipsView.removeAll();
         relationshipsView.modelChanged();
         updateVisibility(refreshed);
+        onRelationshipsChanged(target);
+    }
+
+    /**
+     * Callback invoked after virtual relationships are changed (add/edit/delete) and persisted.
+     *
+     * <p>Subclasses can override this to refresh dependent UI sections (for example the domain model tree).
+     */
+    protected void onRelationshipsChanged(AjaxRequestTarget target) {
+        // default no-op
     }
 
     private void persistRelationships(List<VirtualRelationshipBean> relationships) {
@@ -377,7 +388,7 @@ public class VirtualRelationshipsPanel extends Panel {
                         target.add(modalFeedback);
                         return;
                     }
-                    applyRelationship(bean, relationshipIndex);
+                    applyRelationship(bean, relationshipIndex, target);
                     relationshipModal.close(target);
                     target.add(tableContainer, emptyContainer, feedback);
                 }
