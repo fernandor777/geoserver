@@ -24,13 +24,11 @@
                     <label for="workspace"><wicket:message key="workspace"></wicket:message></label>
                     <select wicket:id="workspace" id="workspace" />
                 </li>
-
                 <li>
                     <label for="featureTypeInfo"><wicket:message key="featureTypeInfo"></wicket:message></label>
                     <select wicket:id="featureTypeInfo" id="featureTypeInfo" />
                 </li>
-
-                <div class="pt-4">
+                <li class="pt-4">
                     <fieldset class="mb-0">
                         <legend>
                             <span><wicket:message key="templateContentSpan">Template Content</wicket:message></span>
@@ -43,7 +41,59 @@
                             </li>
                         </ul>
                     </fieldset>
-                </div>
+                </li>
+                <li class="pt-4">
+                    <fieldset class="mb-0">
+                        <legend>
+                            <span><wicket:message key="aiSectionTitle">AI Template Generation (Prototype)</wicket:message></span>
+                        </legend>
+                        <ul>
+                            <li>
+                                <label for="openAiApiKey"><wicket:message key="openAiApiKey"></wicket:message></label>
+                                <input id="openAiApiKey" wicket:id="openAiApiKey" type="password" class="text"/>
+                            </li>
+                            <li>
+                                <label for="openAiModel"><wicket:message key="openAiModel"></wicket:message></label>
+                                <input id="openAiModel" wicket:id="openAiModel" type="text" class="text"/>
+                            </li>
+                            <li>
+                                <label for="targetSchemaUrl"><wicket:message key="targetSchemaUrl"></wicket:message></label>
+                                <input id="targetSchemaUrl" wicket:id="targetSchemaUrl" type="text" class="text"/>
+                            </li>
+                            <li>
+                                <label for="targetSchemaFile"><wicket:message key="targetSchemaFile"></wicket:message></label>
+                                <input type="file" id="targetSchemaFile" wicket:id="targetSchemaFile"/>
+                            </li>
+                            <li>
+                                <label for="sampleCount"><wicket:message key="sampleCount"></wicket:message></label>
+                                <input id="sampleCount" wicket:id="sampleCount" type="text" class="text"/>
+                            </li>
+                            <li>
+                                <label for="additionalInstructions"><wicket:message key="additionalInstructions"></wicket:message></label>
+                                <textarea id="additionalInstructions" wicket:id="additionalInstructions" rows="4"></textarea>
+                            </li>
+                            <li>
+                                <a href="#" wicket:id="collectAIContext"><wicket:message key="collectAIContext">Collect AI Context</wicket:message></a>
+                                <a href="#" wicket:id="generateTemplateWithAI"><wicket:message key="generateTemplateWithAI">Generate Template</wicket:message></a>
+                            </li>
+                            <li>
+                                <label for="sourceSchema"><wicket:message key="sourceSchema"></wicket:message></label>
+                                <textarea id="sourceSchema" wicket:id="sourceSchema" rows="10" readonly="readonly"></textarea>
+                            </li>
+                            <li>
+                                <label for="targetSchema"><wicket:message key="targetSchema"></wicket:message></label>
+                                <textarea id="targetSchema" wicket:id="targetSchema" rows="10" readonly="readonly"></textarea>
+                            </li>
+                            <li>
+                                <label for="sourceSampleGml"><wicket:message key="sourceSampleGml"></wicket:message></label>
+                                <textarea id="sourceSampleGml" wicket:id="sourceSampleGml" rows="10" readonly="readonly"></textarea>
+                            </li>
+                            <li>
+                                <div wicket:id="aiFeedback"></div>
+                            </li>
+                        </ul>
+                    </fieldset>
+                </li>
             </ul>
         </fieldset>
     </div>
