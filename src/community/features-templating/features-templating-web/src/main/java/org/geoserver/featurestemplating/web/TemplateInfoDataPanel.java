@@ -78,7 +78,7 @@ public abstract class TemplateInfoDataPanel extends Panel {
 
     private PasswordTextField openAiApiKeyField;
 
-    private TextField<String> openAiModelField;
+    private DropDownChoice<String> openAiModelField;
 
     private TextField<String> targetSchemaUrlField;
 
@@ -174,7 +174,9 @@ public abstract class TemplateInfoDataPanel extends Panel {
         openAiApiKeyField = new PasswordTextField("openAiApiKey", new PropertyModel<>(aiModel, "openAiApiKey"));
         openAiApiKeyField.setResetPassword(false).setRequired(false);
         add(openAiApiKeyField);
-        openAiModelField = new TextField<>("openAiModel", new PropertyModel<>(aiModel, "openAiModel"));
+        openAiModelField =
+                new DropDownChoice<>("openAiModel", new PropertyModel<>(aiModel, "openAiModel"), getOpenAiModels());
+        openAiModelField.setNullValid(false);
         openAiModelField.setRequired(false);
         add(openAiModelField);
         targetSchemaUploadField = new FileUploadField("targetSchemaFile");
@@ -214,6 +216,10 @@ public abstract class TemplateInfoDataPanel extends Panel {
 
     private List<String> getExtensions() {
         return Arrays.asList("xml", "xhtml", "json");
+    }
+
+    private List<String> getOpenAiModels() {
+        return Arrays.asList("gpt-5.2", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1", "gpt-4.1-mini", "gpt-4o");
     }
 
     private List<String> getFeatureTypesInfo(String workspaceName) {
@@ -346,7 +352,10 @@ public abstract class TemplateInfoDataPanel extends Panel {
 
     private void syncAiModelFromRequest() {
         updateTextValue(openAiApiKeyField, aiModel::setOpenAiApiKey);
-        updateTextValue(openAiModelField, aiModel::setOpenAiModel);
+        String modelValue = getSubmittedValue(openAiModelField);
+        if (modelValue != null) {
+            aiModel.setOpenAiModel(resolveSelectedModel(modelValue));
+        }
         updateTextValue(targetSchemaUrlField, aiModel::setTargetSchemaUrl);
         updateTextValue(additionalInstructionsField, aiModel::setAdditionalInstructions);
         String sampleCountValue = getSubmittedValue(sampleCountField);
@@ -377,6 +386,25 @@ public abstract class TemplateInfoDataPanel extends Panel {
         }
         IRequestParameters parameters = RequestCycle.get().getRequest().getRequestParameters();
         return parameters.getParameterValue(inputName).toOptionalString();
+    }
+
+    private String resolveSelectedModel(String submitted) {
+        if (isBlank(submitted)) {
+            return aiModel.getOpenAiModel();
+        }
+        List<? extends String> choices = openAiModelField.getChoices();
+        try {
+            int selectedIndex = Integer.parseInt(submitted);
+            if (selectedIndex >= 0 && selectedIndex < choices.size()) {
+                return choices.get(selectedIndex);
+            }
+        } catch (NumberFormatException e) {
+            // keep fallback branch below
+        }
+        if (choices.contains(submitted)) {
+            return submitted;
+        }
+        throw new IllegalArgumentException(getString("aiInvalidModelSelection"));
     }
 
     private TemplateOpenAIService getOpenAIService() {
@@ -503,7 +531,7 @@ public abstract class TemplateInfoDataPanel extends Panel {
 
         private String openAiApiKey;
 
-        private String openAiModel = "gpt-4.1-mini";
+        private String openAiModel = "gpt-5-mini";
 
         private String targetSchemaUrl;
 
