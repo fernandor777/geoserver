@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
@@ -27,6 +28,7 @@ import org.apache.wicket.ajax.markup.html.form.AjaxSubmitLink;
 import org.apache.wicket.core.util.string.JavaScriptUtils;
 import org.apache.wicket.markup.html.form.DropDownChoice;
 import org.apache.wicket.markup.html.form.Form;
+import org.apache.wicket.markup.html.form.FormComponent;
 import org.apache.wicket.markup.html.form.PasswordTextField;
 import org.apache.wicket.markup.html.form.TextArea;
 import org.apache.wicket.markup.html.form.TextField;
@@ -37,6 +39,8 @@ import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.model.PropertyModel;
+import org.apache.wicket.request.IRequestParameters;
+import org.apache.wicket.request.cycle.RequestCycle;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.NamespaceInfo;
 import org.geoserver.featurestemplating.configuration.TemplateInfo;
@@ -52,7 +56,7 @@ public abstract class TemplateInfoDataPanel extends Panel {
 
     static final Logger LOGGER = Logging.getLogger(TemplateInfoDataPanel.class);
 
-    private final TemplateOpenAIService openAIService = new TemplateOpenAIService();
+    private transient TemplateOpenAIService openAIService;
 
     private TemplateConfigurationPage page;
 
@@ -71,6 +75,16 @@ public abstract class TemplateInfoDataPanel extends Panel {
     private AjaxSubmitLink uploadLink;
 
     private FileUploadField targetSchemaUploadField;
+
+    private PasswordTextField openAiApiKeyField;
+
+    private TextField<String> openAiModelField;
+
+    private TextField<String> targetSchemaUrlField;
+
+    private TextField<Integer> sampleCountField;
+
+    private TextArea<String> additionalInstructionsField;
 
     private TextArea<String> sourceSchemaArea;
 
@@ -157,19 +171,22 @@ public abstract class TemplateInfoDataPanel extends Panel {
         uploadLink = uploadLink();
         add(uploadLink);
 
-        add(new PasswordTextField("openAiApiKey", new PropertyModel<>(aiModel, "openAiApiKey"))
-                .setResetPassword(false)
-                .setRequired(false));
-        TextField<String> openAiModelField =
-                new TextField<>("openAiModel", new PropertyModel<>(aiModel, "openAiModel"));
+        openAiApiKeyField = new PasswordTextField("openAiApiKey", new PropertyModel<>(aiModel, "openAiApiKey"));
+        openAiApiKeyField.setResetPassword(false).setRequired(false);
+        add(openAiApiKeyField);
+        openAiModelField = new TextField<>("openAiModel", new PropertyModel<>(aiModel, "openAiModel"));
         openAiModelField.setRequired(false);
         add(openAiModelField);
         targetSchemaUploadField = new FileUploadField("targetSchemaFile");
         targetSchemaUploadField.setDefaultModel(new Model<>(""));
         add(targetSchemaUploadField);
-        add(new TextField<>("targetSchemaUrl", new PropertyModel<>(aiModel, "targetSchemaUrl")));
-        add(new TextField<>("sampleCount", new PropertyModel<>(aiModel, "sampleCount"), Integer.class));
-        add(new TextArea<>("additionalInstructions", new PropertyModel<>(aiModel, "additionalInstructions")));
+        targetSchemaUrlField = new TextField<>("targetSchemaUrl", new PropertyModel<>(aiModel, "targetSchemaUrl"));
+        add(targetSchemaUrlField);
+        sampleCountField = new TextField<>("sampleCount", new PropertyModel<>(aiModel, "sampleCount"), Integer.class);
+        add(sampleCountField);
+        additionalInstructionsField =
+                new TextArea<>("additionalInstructions", new PropertyModel<>(aiModel, "additionalInstructions"));
+        add(additionalInstructionsField);
 
         sourceSchemaArea = new TextArea<>("sourceSchema", new PropertyModel<>(aiModel, "sourceSchema"));
         sourceSchemaArea.setOutputMarkupId(true);
@@ -216,6 +233,7 @@ public abstract class TemplateInfoDataPanel extends Panel {
             protected void onSubmit(AjaxRequestTarget target) {
                 clearAIFeedback();
                 try {
+                    syncAiModelFromRequest();
                     collectContextData();
                     info(getString("aiContextCollected"));
                 } catch (Exception e) {
@@ -241,21 +259,23 @@ public abstract class TemplateInfoDataPanel extends Panel {
             protected void onSubmit(AjaxRequestTarget target) {
                 clearAIFeedback();
                 try {
+                    syncAiModelFromRequest();
                     if (isBlank(aiModel.getSourceSchema())
                             || isBlank(aiModel.getSourceSampleGml())
                             || isBlank(aiModel.getTargetSchema())) {
                         collectContextData();
                     }
                     TemplateInfo templateInfo = model.getObject();
-                    String generatedTemplate = openAIService.generateTemplate(
-                            aiModel.getOpenAiApiKey(),
-                            aiModel.getOpenAiModel(),
-                            templateInfo.getWorkspace(),
-                            templateInfo.getFeatureType(),
-                            aiModel.getSourceSchema(),
-                            aiModel.getTargetSchema(),
-                            aiModel.getSourceSampleGml(),
-                            aiModel.getAdditionalInstructions());
+                    String generatedTemplate = getOpenAIService()
+                            .generateTemplate(
+                                    aiModel.getOpenAiApiKey(),
+                                    aiModel.getOpenAiModel(),
+                                    templateInfo.getWorkspace(),
+                                    templateInfo.getFeatureType(),
+                                    aiModel.getSourceSchema(),
+                                    aiModel.getTargetSchema(),
+                                    aiModel.getSourceSampleGml(),
+                                    aiModel.getAdditionalInstructions());
                     templateInfo.setExtension("xml");
                     templateExtension.setModelObject("xml");
                     templateExtension.modelChanged();
@@ -292,13 +312,14 @@ public abstract class TemplateInfoDataPanel extends Panel {
         }
         String uploadedSchema = getUploadedSchemaAsText();
         int sampleCount = aiModel.getSampleCount() == null ? 1 : Math.max(aiModel.getSampleCount(), 1);
-        TemplateOpenAIService.ContextData contextData = openAIService.collectContext(
-                request,
-                templateInfo.getWorkspace(),
-                templateInfo.getFeatureType(),
-                sampleCount,
-                aiModel.getTargetSchemaUrl(),
-                uploadedSchema);
+        TemplateOpenAIService.ContextData contextData = getOpenAIService()
+                .collectContext(
+                        request,
+                        templateInfo.getWorkspace(),
+                        templateInfo.getFeatureType(),
+                        sampleCount,
+                        aiModel.getTargetSchemaUrl(),
+                        uploadedSchema);
         aiModel.setSourceSchema(contextData.getSourceSchema());
         aiModel.setSourceSampleGml(contextData.getSourceSampleGml());
         aiModel.setTargetSchema(contextData.getTargetSchema());
@@ -321,6 +342,48 @@ public abstract class TemplateInfoDataPanel extends Panel {
 
     private void clearAIFeedback() {
         aiFeedback.getFeedbackMessages().clear();
+    }
+
+    private void syncAiModelFromRequest() {
+        updateTextValue(openAiApiKeyField, aiModel::setOpenAiApiKey);
+        updateTextValue(openAiModelField, aiModel::setOpenAiModel);
+        updateTextValue(targetSchemaUrlField, aiModel::setTargetSchemaUrl);
+        updateTextValue(additionalInstructionsField, aiModel::setAdditionalInstructions);
+        String sampleCountValue = getSubmittedValue(sampleCountField);
+        if (sampleCountValue != null) {
+            if (isBlank(sampleCountValue)) {
+                aiModel.setSampleCount(null);
+            } else {
+                try {
+                    aiModel.setSampleCount(Integer.valueOf(sampleCountValue.trim()));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(getString("aiInvalidSampleCount"));
+                }
+            }
+        }
+    }
+
+    private void updateTextValue(FormComponent<?> component, java.util.function.Consumer<String> setter) {
+        String value = getSubmittedValue(component);
+        if (value != null) {
+            setter.accept(value);
+        }
+    }
+
+    private String getSubmittedValue(FormComponent<?> component) {
+        String inputName = component.getInputName();
+        if (inputName == null) {
+            return null;
+        }
+        IRequestParameters parameters = RequestCycle.get().getRequest().getRequestParameters();
+        return parameters.getParameterValue(inputName).toOptionalString();
+    }
+
+    private TemplateOpenAIService getOpenAIService() {
+        if (openAIService == null) {
+            openAIService = new TemplateOpenAIService();
+        }
+        return openAIService;
     }
 
     AjaxSubmitLink uploadLink() {
@@ -434,7 +497,9 @@ public abstract class TemplateInfoDataPanel extends Panel {
         return value == null || value.trim().isEmpty();
     }
 
-    private static class TemplateAIGenerationModel {
+    private static class TemplateAIGenerationModel implements Serializable {
+
+        private static final long serialVersionUID = 1L;
 
         private String openAiApiKey;
 
