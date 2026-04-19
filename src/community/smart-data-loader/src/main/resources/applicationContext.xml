@@ -14,7 +14,16 @@ application directory.
         http://www.springframework.org/schema/mvc/spring-mvc.xsd
         http://www.springframework.org/schema/context
         http://www.springframework.org/schema/context/spring-context.xsd">
-        
+    <bean id="smartDataLoaderJdbcMetadataCache"
+            class="org.geoserver.smartdataloader.metadata.jdbc.cache.LocalJdbcMetadataCache"
+            destroy-method="shutdown" />
+
+    <bean id="smartDataLoaderMetadataCacheController"
+            class="org.geoserver.smartdataloader.rest.SmartDataLoaderMetadataCacheController">
+        <constructor-arg ref="smartDataLoaderJdbcMetadataCache" />
+        <constructor-arg ref="catalog" />
+    </bean>
+
     <bean id="postgisSmartAppSchemaDataStorePanel" class="org.geoserver.web.data.resource.DataStorePanelInfo">
 	    <property name="id" value="smart-appschema" />
 	    <property name="factoryClass"

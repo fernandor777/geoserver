@@ -13,6 +13,12 @@
             <span wicket:id="dataStoreName">bar</span>
           </label>
           <select class="select" wicket:id="postgisdatastore" id="postgisdatastore"/>
+          <div class="metadata-cache-actions">
+            <a wicket:id="refreshMetadataCache">
+              <wicket:message key="PostGisSmartAppSchemaStoreEditPanel.metadataCacheRefresh">Refresh metadata cache</wicket:message>
+            </a>
+            <div wicket:id="metadataCacheFeedback"/>
+          </div>
           <div wicket:id="rootentities"/>
           <br/>
           <div wicket:id="domainmodel"/>

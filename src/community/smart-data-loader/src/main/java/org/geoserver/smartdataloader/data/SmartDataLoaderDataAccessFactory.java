@@ -43,9 +43,9 @@ import org.geoserver.smartdataloader.domain.entities.DomainModel;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadata;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataFactory;
-import org.geoserver.smartdataloader.metadata.jdbc.DefaultJdbcHelper;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelper;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelperFactory;
 import org.geoserver.smartdataloader.metadata.jdbc.VirtualFkJdbcHelper;
 import org.geoserver.smartdataloader.visitors.appschema.AppSchemaVisitor;
 import org.geoserver.smartdataloader.visitors.gml.GmlSchemaVisitor;
@@ -259,7 +259,10 @@ public class SmartDataLoaderDataAccessFactory implements DataAccessFactory {
                     throw new RuntimeException("Error parsing virtual relationships configuration.", e);
                 }
             }
-            JdbcHelper jdbcHelper = new VirtualFkJdbcHelper(new DefaultJdbcHelper(), relationships);
+            JdbcHelper jdbcHelper;
+            try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
+                jdbcHelper = new VirtualFkJdbcHelper(JdbcHelperFactory.forConnection(connection), relationships);
+            }
             validateVirtualRelationships(jdbcHelper, jdbcDataStore, relationships);
             dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config, jdbcHelper);
         } catch (SQLException e) {
@@ -337,7 +340,7 @@ public class SmartDataLoaderDataAccessFactory implements DataAccessFactory {
         }
         String allowedSchema = jdbcDataStore.getDatabaseSchema();
         try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
-            ((VirtualFkJdbcHelper) jdbcHelper).validateVirtualRelationships(connection.getMetaData(), allowedSchema);
+            ((VirtualFkJdbcHelper) jdbcHelper).validateVirtualRelationships(connection, allowedSchema);
         }
     }
 

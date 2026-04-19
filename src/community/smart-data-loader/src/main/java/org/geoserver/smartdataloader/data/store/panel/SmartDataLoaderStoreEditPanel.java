@@ -11,14 +11,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import org.apache.wicket.ajax.AjaxEventBehavior;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.form.AjaxFormComponentUpdatingBehavior;
+import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.markup.head.CssHeaderItem;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.html.WebMarkupContainer;
@@ -26,6 +31,7 @@ import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.ChoiceRenderer;
 import org.apache.wicket.markup.html.form.DropDownChoice;
 import org.apache.wicket.markup.html.form.Form;
+import org.apache.wicket.markup.html.panel.FeedbackPanel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.model.PropertyModel;
@@ -44,7 +50,11 @@ import org.geoserver.smartdataloader.metadata.DataStoreMetadataConfig;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadataFactory;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.JdbcDataStoreMetadataConfig;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcHelperFactory;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcTableMetadata;
 import org.geoserver.smartdataloader.metadata.jdbc.VirtualFkJdbcHelper;
+import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCache;
+import org.geoserver.smartdataloader.metadata.jdbc.cache.JdbcMetadataCacheSupport;
 import org.geoserver.web.data.store.StoreEditPanel;
 import org.geoserver.web.data.store.panel.TextParamPanel;
 import org.geoserver.web.data.store.panel.WorkspacePanel;
@@ -52,23 +62,20 @@ import org.geoserver.web.util.MapModel;
 import org.geoserver.web.wicket.ParamResourceModel;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.JDBCDataStoreFactory;
+import org.geotools.util.logging.Logging;
 
 /** Implementation od StoreEditPanel for PostgisSmartAppSchemaDataAccessFactory. */
 @SuppressWarnings("serial")
 public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
 
     private static final boolean isCssEmpty = IsWicketCssFileEmpty(SmartDataLoaderStoreEditPanel.class);
-
+    private static final Logger LOGGER = Logging.getLogger(SmartDataLoaderStoreEditPanel.class);
     // resources
     private Model<DataStoreSummary> datastoreModel;
     private ParamResourceModel rootentitiesResource =
             new ParamResourceModel("PostGisSmartAppSchemaStoreEditPanel.rootentities", this);
     private ParamResourceModel domainmodelResource =
             new ParamResourceModel("PostGisSmartAppSchemaStoreEditPanel.domainmodel", this);
-    private ParamResourceModel exclusionsResource =
-            new ParamResourceModel("PostGisSmartAppSchemaStoreEditPanel.exclusions", this);
-    private ParamResourceModel datastorenameResource =
-            new ParamResourceModel("PostGisSmartAppSchemaStoreEditPanel.datastorename", this);
 
     // view components
     private NestedTreePanel domainModelTree;
@@ -100,6 +107,8 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
     @SuppressWarnings("unused")
     private String selectedWorkspaceName = "";
 
+    private FeedbackPanel metadataCacheFeedback;
+
     public SmartDataLoaderStoreEditPanel(final String componentId, final Form storeEditForm) {
         super(componentId, storeEditForm);
         model = storeEditForm.getModel();
@@ -113,6 +122,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         buildEntitiesPrefixTextbox();
         // build connection parameters panel
         buildPostgisDropDownPanel();
+        buildMetadataCacheRefreshHook();
         // build rootentity selector panel
         buildRootEntitySelectionPanel(model);
         // build entities, attributes and relations selector panel
@@ -179,7 +189,18 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
     @Override
     public void renderHead(IHeaderResponse response) {
         super.renderHead(response);
-        String css = ".qos-panel { " + "border: 1px solid #c6e09b; " + "padding: 5px; " + " }";
+        String css = ".qos-panel { "
+                + "border: 1px solid #c6e09b; "
+                + "padding: 5px; "
+                + " } "
+                + ".metadata-cache-actions { "
+                + "margin-top: 10px; "
+                + "margin-bottom: 14px; "
+                + "padding-left: 2px; "
+                + "} "
+                + ".metadata-cache-actions .feedbackPanel { "
+                + "margin-top: 6px; "
+                + "}";
         response.render(CssHeaderItem.forCSS(css, "qosPanelCss"));
         // if the panel-specific CSS file contains actual css then have the browser load the css
         if (!isCssEmpty) {
@@ -227,6 +248,80 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         Label dataStoreLabel = new Label("dataStoreName", "Data store name *");
         add(dataStoreLabel);
         add(datastores);
+    }
+
+    /** Builds a UI hook that allows manually invalidating cached metadata for the selected JDBC datastore. */
+    private void buildMetadataCacheRefreshHook() {
+        metadataCacheFeedback = new FeedbackPanel("metadataCacheFeedback");
+        metadataCacheFeedback.setOutputMarkupId(true);
+        add(metadataCacheFeedback);
+
+        AjaxLink<Void> refreshMetadataCache = new AjaxLink<Void>("refreshMetadataCache") {
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                try {
+                    boolean invalidated = invalidateSelectedStoreMetadataCache();
+                    if (invalidated) {
+                        info(getString("PostGisSmartAppSchemaStoreEditPanel.metadataCacheRefresh.success"));
+                    } else {
+                        info(getString("PostGisSmartAppSchemaStoreEditPanel.metadataCacheRefresh.disabled"));
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Failed to refresh Smart Data Loader metadata cache from UI.", e);
+                    error(getString("PostGisSmartAppSchemaStoreEditPanel.metadataCacheRefresh.error"));
+                }
+                if (target != null) {
+                    target.add(metadataCacheFeedback);
+                }
+            }
+        };
+        refreshMetadataCache.setOutputMarkupId(true);
+        add(refreshMetadataCache);
+    }
+
+    private boolean invalidateSelectedStoreMetadataCache() throws Exception {
+        if (selectedPostgisDataStoreId == null || selectedPostgisDataStoreId.isEmpty()) {
+            throw new IllegalStateException("No datastore is selected.");
+        }
+        DataStoreInfo ds = getCatalog().getDataStore(selectedPostgisDataStoreId);
+        if (ds == null) {
+            throw new IllegalStateException("Selected datastore no longer exists.");
+        }
+        JDBCDataStoreFactory factory = new JDBCDataStoreFactoryFinder().getFactoryFromType(ds.getType());
+        if (factory == null) {
+            throw new IllegalStateException("No JDBC factory found for datastore type " + ds.getType());
+        }
+
+        JdbcMetadataCache cache = JdbcMetadataCacheSupport.resolveCache(LOGGER);
+        if (!cache.isEnabled()) {
+            LOGGER.fine("Metadata cache refresh requested from UI while cache is disabled.");
+            return false;
+        }
+
+        DataStoreInfo clonedStore = getCatalog().getResourcePool().clone(ds, true);
+        JDBCDataStore jdbcDataStore = null;
+        try {
+            jdbcDataStore = factory.createDataStore(clonedStore.getConnectionParameters());
+            if (jdbcDataStore == null) {
+                throw new IllegalStateException("Cannot build JDBC datastore for selected datastore.");
+            }
+            String password =
+                    Objects.toString(clonedStore.getConnectionParameters().get("passwd"), "");
+            JdbcDataStoreMetadataConfig config = new JdbcDataStoreMetadataConfig(jdbcDataStore, password);
+            try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
+                String datastoreId = JdbcMetadataCacheSupport.buildDatastoreId(connection, config);
+                cache.invalidateByStore(datastoreId, config.getSchema());
+                LOGGER.log(
+                        Level.INFO,
+                        "Invalidated metadata cache from UI for datastore {0} schema {1}.",
+                        new Object[] {ds.getName(), config.getSchema()});
+            }
+            return true;
+        } finally {
+            if (jdbcDataStore != null) {
+                jdbcDataStore.dispose();
+            }
+        }
     }
 
     private List<DataStoreSummary> getPostgisDataStores(WorkspaceInfo wi) {
@@ -312,24 +407,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
                 domainModelTree.add(new AjaxEventBehavior(("click")) {
                     @Override
                     protected void onEvent(AjaxRequestTarget target) {
-                        // build list of exclusions based on tree selection
-                        StringBuilder stringBuilder = new StringBuilder();
-                        for (DefaultMutableTreeNode node : nodes) {
-                            if (!checkedNodes.contains(node)) {
-                                if (node.getParent() != null) {
-                                    stringBuilder.append(node.getParent().toString() + "." + node.toString());
-                                } else {
-                                    stringBuilder.append(node.toString());
-                                }
-                                stringBuilder.append(",");
-                            }
-                        }
-                        String exclusionList = stringBuilder.toString();
-                        int size = exclusionList.length();
-                        String fullExclusionList = "";
-                        if (size > 0) {
-                            fullExclusionList = exclusionList.substring(0, size - 1);
-                        }
+                        String fullExclusionList = buildExclusionList(nodes, checkedNodes);
                         // set exclusionList value to exclusionsPanel (model)
                         exclusions.getFormComponent().modelChanging();
                         smartAppSchemaDataStoreInfo
@@ -350,11 +428,12 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     protected void buildHiddenParametersPanel(final IModel model) {
+        IModel<String> hiddenLabelModel = Model.of("");
         IModel iModel = new PropertyModel(model, "connectionParameters");
         exclusions = new TextParamPanel(
                 "exclusions",
                 new MapModel(iModel, SmartDataLoaderDataAccessFactory.DOMAIN_MODEL_EXCLUSIONS.key),
-                exclusionsResource,
+                hiddenLabelModel,
                 false);
         exclusions.setOutputMarkupId(true);
         exclusions.getFormComponent().setEnabled(false);
@@ -365,7 +444,7 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         datastorename = new TextParamPanel(
                 "datastorename",
                 new MapModel(iModel, SmartDataLoaderDataAccessFactory.DATASTORE_NAME.key),
-                datastorenameResource,
+                hiddenLabelModel,
                 false);
         datastorename.setOutputMarkupId(true);
         datastorename.getFormComponent().setEnabled(false);
@@ -398,19 +477,80 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
         return checkedNodes;
     }
 
+    private String buildExclusionList(Set<DefaultMutableTreeNode> nodes, Set<DefaultMutableTreeNode> checkedNodes) {
+        if (nodes == null || nodes.isEmpty()) {
+            return "";
+        }
+        // A logical object can appear multiple times in the tree (different relation branches):
+        // consider it excluded only when all corresponding nodes are unchecked.
+        Map<String, Boolean> inclusionByObjectCode = new LinkedHashMap<>();
+        for (DefaultMutableTreeNode node : nodes) {
+            String objectCode = buildObjectCode(node);
+            if (objectCode == null || objectCode.trim().isEmpty()) {
+                continue;
+            }
+            boolean isChecked = checkedNodes != null && checkedNodes.contains(node);
+            if (isChecked) {
+                inclusionByObjectCode.put(objectCode, true);
+            } else if (!inclusionByObjectCode.containsKey(objectCode)) {
+                inclusionByObjectCode.put(objectCode, false);
+            }
+        }
+        StringBuilder exclusionsBuilder = new StringBuilder();
+        for (Map.Entry<String, Boolean> entry : inclusionByObjectCode.entrySet()) {
+            if (Boolean.TRUE.equals(entry.getValue())) {
+                continue;
+            }
+            if (exclusionsBuilder.length() > 0) {
+                exclusionsBuilder.append(",");
+            }
+            exclusionsBuilder.append(entry.getKey());
+        }
+        return exclusionsBuilder.toString();
+    }
+
+    private String buildObjectCode(DefaultMutableTreeNode node) {
+        if (node == null) {
+            return null;
+        }
+        if (node.getParent() != null) {
+            return node.getParent().toString() + "." + node.toString();
+        }
+        return node.toString();
+    }
+
     /**
      * Helper method to get the list of all the available entities that can be defined as root entity for a DomainModel.
      */
     private List<String> getAvailableRootEntities(DataStoreInfo ds) {
         DataStoreMetadata dsm = this.getDataStoreMetadata(ds);
+        String defaultSchema = resolveDatastoreSchema(ds);
         @SuppressWarnings("unchecked")
         List<String> choiceList = new ArrayList<>();
         List<EntityMetadata> entities = dsm.getDataStoreEntities();
         for (EntityMetadata e : entities) {
+            if (defaultSchema != null && e instanceof JdbcTableMetadata) {
+                String entitySchema = ((JdbcTableMetadata) e).getSchema();
+                if (!defaultSchema.equals(entitySchema)) {
+                    continue;
+                }
+            }
             String name = e.getName();
             choiceList.add(name);
         }
         return choiceList;
+    }
+
+    private String resolveDatastoreSchema(DataStoreInfo ds) {
+        if (ds == null || ds.getConnectionParameters() == null) {
+            return null;
+        }
+        Object schemaParam = ds.getConnectionParameters().get("schema");
+        if (schemaParam == null) {
+            return null;
+        }
+        String schema = schemaParam.toString().trim();
+        return schema.isEmpty() ? null : schema;
     }
 
     /** Helper method to get Postgis-related DataStoreMetadata. */
@@ -424,9 +564,9 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
             DataStoreMetadataConfig config = new JdbcDataStoreMetadataConfig(
                     jdbcDataStore, ds.getConnectionParameters().get("passwd").toString());
             Relationships relationships = extractVirtualRelationships();
-            VirtualFkJdbcHelper helper = new VirtualFkJdbcHelper(relationships);
+            VirtualFkJdbcHelper helper;
             try (java.sql.Connection connection = jdbcDataStore.getDataSource().getConnection()) {
-                helper.validateVirtualRelationships(connection.getMetaData(), jdbcDataStore.getDatabaseSchema());
+                helper = new VirtualFkJdbcHelper(JdbcHelperFactory.forConnection(connection), relationships);
             }
             dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config, helper);
         } catch (RuntimeException e) {
@@ -523,7 +663,16 @@ public class SmartDataLoaderStoreEditPanel extends StoreEditPanel {
 
     private void buildVirtualRelationshipsPanel(final IModel<?> model) {
         IModel<Map<String, Serializable>> paramsModel = new PropertyModel<>(model, "connectionParameters");
-        VirtualRelationshipsPanel panel = new VirtualRelationshipsPanel("virtualRelationships", paramsModel);
+        VirtualRelationshipsPanel panel = new VirtualRelationshipsPanel("virtualRelationships", paramsModel) {
+            @Override
+            protected void onRelationshipsChanged(AjaxRequestTarget target) {
+                IModel<?> connectionParamsModel = new PropertyModel<>(model, "connectionParameters");
+                buildDomainModelTreePanel(connectionParamsModel);
+                if (target != null) {
+                    target.add(domainModelTree);
+                }
+            }
+        };
         panel.setOutputMarkupId(true);
         add(panel);
     }
