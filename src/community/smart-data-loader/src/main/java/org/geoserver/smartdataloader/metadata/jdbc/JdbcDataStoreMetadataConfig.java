@@ -28,8 +28,16 @@ public class JdbcDataStoreMetadataConfig extends DataStoreMetadataConfig {
     public JdbcDataStoreMetadataConfig(JDBCDataStore jdbcStore, String password) throws IOException, SQLException {
         this.connection = jdbcStore.getConnection(Transaction.AUTO_COMMIT);
         this.name = jdbcStore.getDatabaseSchema();
-        this.catalog = jdbcStore.getDataSource().getConnection().getCatalog();
-        this.schema = jdbcStore.getDatabaseSchema();
+        String detectedCatalog = null;
+        String detectedSchema = jdbcStore.getDatabaseSchema();
+        try (Connection dataSourceConnection = jdbcStore.getDataSource().getConnection()) {
+            detectedCatalog = dataSourceConnection.getCatalog();
+            if (detectedSchema == null || detectedSchema.trim().isEmpty()) {
+                detectedSchema = dataSourceConnection.getSchema();
+            }
+        }
+        this.catalog = detectedCatalog;
+        this.schema = (detectedSchema == null || detectedSchema.trim().isEmpty()) ? null : detectedSchema;
         // required as parameter since it cannot be extracted from jdbc api
         this.password = password;
     }

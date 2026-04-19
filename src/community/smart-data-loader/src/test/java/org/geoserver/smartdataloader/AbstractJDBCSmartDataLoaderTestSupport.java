@@ -5,7 +5,7 @@ import static org.junit.Assume.assumeNotNull;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import java.util.Properties;
 import javax.sql.DataSource;
 import javax.xml.transform.Transformer;
@@ -100,9 +100,9 @@ public abstract class AbstractJDBCSmartDataLoaderTestSupport extends GeoServerSy
 
     protected abstract JDBCTestSetup createTestSetup();
 
-    protected DataStoreMetadata getDataStoreMetadata(DatabaseMetaData metaData) throws Exception {
+    protected DataStoreMetadata getDataStoreMetadata(Connection connection) throws Exception {
         DataStoreMetadataConfig config =
-                new JdbcDataStoreMetadataConfig(ONLINE_DB_SCHEMA, metaData.getConnection(), null, ONLINE_DB_SCHEMA);
+                new JdbcDataStoreMetadataConfig(ONLINE_DB_SCHEMA, connection, null, ONLINE_DB_SCHEMA);
         DataStoreMetadata dsm = (new DataStoreMetadataFactory()).getDataStoreMetadata(config);
         return dsm;
     }

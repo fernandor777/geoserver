@@ -32,6 +32,18 @@ java -DGEOSERVER_DATA_DIR=... -Dapp-schema.joining=false Start
 
 Not specifying "app-schema.joining" parameter will enable joining by default.
 
+## Cross-Schema Joining
+
+App-schema can also qualify joined tables with a database schema when a mapping spans more than one schema in the same physical database. This is useful when the source tables referenced by a feature chain live outside the default schema of the datastore.
+
+Cross-schema joining is disabled by default. Enable it with the Java System Property:
+
+```
+java -DGEOSERVER_DATA_DIR=... -Dapp-schema.crossSchemaJoining=true Start
+```
+
+This setting only affects JDBC-backed app-schema mappings and is only meaningful when app-schema joining is active. If all mapped tables already live in the same schema, it can be left disabled.
+
 ## Database Design Guidelines
 
 - Databases should be optimised for fast on-the-fly joining and ordering.

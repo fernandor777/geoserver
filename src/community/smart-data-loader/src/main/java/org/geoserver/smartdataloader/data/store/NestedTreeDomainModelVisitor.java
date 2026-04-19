@@ -4,6 +4,7 @@
  */
 package org.geoserver.smartdataloader.data.store;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -19,7 +20,7 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
     private DefaultTreeModel treeModel;
     private DefaultMutableTreeNode root;
 
-    private Map<String, DefaultMutableTreeNode> entities = new HashMap<>();
+    private Map<DomainEntity, DefaultMutableTreeNode> entities = new HashMap<>();
 
     private DefaultMutableTreeNode currentTreeNode;
 
@@ -30,7 +31,7 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
         if (treeModel == null) {
             root = new DefaultMutableTreeNode(de);
             treeModel = new DefaultTreeModel(root);
-            entities.put(entity.getName(), root);
+            entities.put(entity, root);
             currentTreeNode = root;
         }
     }
@@ -40,7 +41,7 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
         this.visitedEntities.add(entity);
         String de = entity.getName();
         DefaultMutableTreeNode chainedEntity = addNodes(currentTreeNode, de);
-        entities.put(entity.getName(), chainedEntity);
+        entities.put(entity, chainedEntity);
         currentTreeNode = chainedEntity;
     }
 
@@ -52,7 +53,22 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
 
     @Override
     public void visitDomainRelation(DomainRelation relation) {
-        currentTreeNode = entities.get(relation.getContainingEntity().getName());
+        currentTreeNode = entities.get(relation.getContainingEntity());
+        if (currentTreeNode == null || relation == null || relation.getDestinationEntity() == null) {
+            return;
+        }
+        // Keep relation selectable even if the destination entity subtree was already visited elsewhere.
+        if (isVisited(relation.getDestinationEntity())) {
+            DomainEntity destinationEntity = relation.getDestinationEntity();
+            String destinationName = destinationEntity.getName();
+            DefaultMutableTreeNode destinationNode = findChildNode(currentTreeNode, destinationName);
+            if (destinationNode == null) {
+                destinationNode = addRelationReferenceNode(currentTreeNode, destinationName);
+            }
+            if (destinationNode != null) {
+                addMissingAttributeNodes(destinationNode, destinationEntity);
+            }
+        }
     }
 
     public DefaultTreeModel getTreeModel() {
@@ -66,5 +82,63 @@ public class NestedTreeDomainModelVisitor extends IndexedDomainModelVisitorImpl 
             parent.add(newNode);
         }
         return newNode;
+    }
+
+    private DefaultMutableTreeNode findChildNode(DefaultMutableTreeNode parent, String childName) {
+        if (parent == null || childName == null) {
+            return null;
+        }
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            Object child = parent.getChildAt(i);
+            if (child instanceof DefaultMutableTreeNode) {
+                DefaultMutableTreeNode childNode = (DefaultMutableTreeNode) child;
+                if (childName.equals(childNode.toString())) {
+                    return childNode;
+                }
+            }
+        }
+        return null;
+    }
+
+    private DefaultMutableTreeNode addRelationReferenceNode(DefaultMutableTreeNode parent, String childNode) {
+        DefaultMutableTreeNode node = new DefaultMutableTreeNode(new TreeNodeValue(childNode, true));
+        parent.add(node);
+        return node;
+    }
+
+    private void addMissingAttributeNodes(DefaultMutableTreeNode parent, DomainEntity destinationEntity) {
+        if (parent == null || destinationEntity == null || destinationEntity.getAttributes() == null) {
+            return;
+        }
+        for (DomainEntitySimpleAttribute attribute : destinationEntity.getAttributes()) {
+            if (attribute == null || attribute.getName() == null) {
+                continue;
+            }
+            if (findChildNode(parent, attribute.getName()) == null) {
+                addNodes(parent, attribute.getName());
+            }
+        }
+    }
+
+    /** User object used to tag a node while preserving the displayed label. */
+    public static final class TreeNodeValue implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final String label;
+        private final boolean relationReference;
+
+        public TreeNodeValue(String label, boolean relationReference) {
+            this.label = label;
+            this.relationReference = relationReference;
+        }
+
+        public boolean isRelationReference() {
+            return relationReference;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 }

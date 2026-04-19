@@ -3,7 +3,7 @@ package org.geoserver.smartdataloader.visitors;
 import static org.junit.Assert.assertTrue;
 
 import java.io.InputStream;
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.apache.commons.lang3.StringUtils;
@@ -37,8 +37,8 @@ public abstract class JDBCGmlDomainModelVisitorTest extends AbstractJDBCSmartDat
 
     @Test
     public void testObservationsRootEntity() throws Exception {
-        DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_observations");
         dmc.setEntitiesPrefix(this.entityPrefix);
@@ -63,8 +63,8 @@ public abstract class JDBCGmlDomainModelVisitorTest extends AbstractJDBCSmartDat
 
     @Test
     public void testStationsRootEntity() throws Exception {
-        DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_stations");
         dmc.setEntitiesPrefix(this.entityPrefix);
@@ -88,8 +88,8 @@ public abstract class JDBCGmlDomainModelVisitorTest extends AbstractJDBCSmartDat
 
     @Test
     public void testParametersRootEntity() throws Exception {
-        DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_parameters");
         dmc.setEntitiesPrefix(this.entityPrefix);
@@ -114,8 +114,8 @@ public abstract class JDBCGmlDomainModelVisitorTest extends AbstractJDBCSmartDat
 
     @Test
     public void testMaintainersRootEntity() throws Exception {
-        DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_maintainers");
         dmc.setEntitiesPrefix(this.entityPrefix);

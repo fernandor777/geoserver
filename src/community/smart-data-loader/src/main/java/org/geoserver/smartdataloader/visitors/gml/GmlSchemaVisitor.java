@@ -12,7 +12,7 @@ import static org.geoserver.smartdataloader.visitors.gml.GmlSchemaUtils.createPr
 import static org.geoserver.smartdataloader.visitors.gml.GmlSchemaUtils.createSimpleAttributeElementNode;
 import static org.geoserver.smartdataloader.visitors.gml.GmlSchemaUtils.getFeatureElementNodeByName;
 
-import org.geoserver.smartdataloader.domain.DomainModelVisitorImpl;
+import org.geoserver.smartdataloader.domain.IndexedDomainModelVisitorImpl;
 import org.geoserver.smartdataloader.domain.entities.DomainEntity;
 import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
 import org.geoserver.smartdataloader.domain.entities.DomainRelation;
@@ -21,7 +21,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 /** This visitor will generate a valid GML 3.2 schema for the domain model it will visit. */
-public final class GmlSchemaVisitor extends DomainModelVisitorImpl {
+public final class GmlSchemaVisitor extends IndexedDomainModelVisitorImpl {
 
     private final String targetNamespacePrefix;
 
@@ -37,12 +37,14 @@ public final class GmlSchemaVisitor extends DomainModelVisitorImpl {
 
     @Override
     public void visitDomainRootEntity(DomainEntity entity) {
+        super.visitDomainRootEntity(entity);
         // we don't need a property type, because this feature is never chained
         handleEntity(entity, false);
     }
 
     @Override
     public void visitDomainChainedEntity(DomainEntity entity) {
+        super.visitDomainChainedEntity(entity);
         // we need a property type since this entity is chained at some point
         handleEntity(entity, true);
     }

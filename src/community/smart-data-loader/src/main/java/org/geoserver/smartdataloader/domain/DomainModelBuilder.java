@@ -6,10 +6,11 @@ package org.geoserver.smartdataloader.domain;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 import org.geoserver.smartdataloader.domain.entities.DomainAttributeType;
 import org.geoserver.smartdataloader.domain.entities.DomainEntity;
 import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
@@ -19,6 +20,7 @@ import org.geoserver.smartdataloader.metadata.AttributeMetadata;
 import org.geoserver.smartdataloader.metadata.DataStoreMetadata;
 import org.geoserver.smartdataloader.metadata.EntityMetadata;
 import org.geoserver.smartdataloader.metadata.RelationMetadata;
+import org.geoserver.smartdataloader.metadata.jdbc.JdbcTableMetadata;
 import org.geotools.util.logging.Logging;
 
 /**
@@ -32,12 +34,15 @@ public final class DomainModelBuilder {
     private final DataStoreMetadata dataStoreMetadata;
     private final DomainModelConfig domainModelConfig;
 
-    private final Map<String, DomainEntity> domainEntitiesIndex = new HashMap<>();
-    private final Set<String> visitedEntities = new HashSet<>();
+    private final Map<EntityMetadata, DomainEntity> domainEntitiesIndex = new HashMap<>();
+    private final Set<EntityMetadata> visitedEntities = new HashSet<>();
+    private final Set<EntityMetadata> initializedEntities = new HashSet<>();
+    private final Set<String> duplicatedEntityNames;
 
     public DomainModelBuilder(DataStoreMetadata dataStoreMetadata, DomainModelConfig domainModelConfig) {
         this.dataStoreMetadata = dataStoreMetadata;
         this.domainModelConfig = domainModelConfig;
+        this.duplicatedEntityNames = findDuplicatedEntityNames(dataStoreMetadata);
     }
 
     public DomainModel buildDomainModel() {
@@ -46,22 +51,28 @@ public final class DomainModelBuilder {
             throw new RuntimeException(
                     "Root entity name '" + domainModelConfig.getRootEntityName() + "' does not exists!");
         }
-        DomainEntity rootEntity = this.buildRootDomainEntity(rootEntityMetadata.getName());
+        DomainEntity rootEntity = this.buildRootDomainEntity(rootEntityMetadata);
         DomainModel dm = new DomainModel(this.dataStoreMetadata, rootEntity);
         return dm;
     }
 
-    private DomainEntity buildRootDomainEntity(String entityName) {
-        return buildDomainEntity(entityName, null);
+    private DomainEntity buildRootDomainEntity(EntityMetadata entityMetadata) {
+        return buildDomainEntity(entityMetadata, null);
     }
 
     private DomainEntity indexEntity(EntityMetadata entityMetadata) {
         // let's try to retrieve the domain entity
-        DomainEntity entity = domainEntitiesIndex.get(entityMetadata.getName());
+        DomainEntity entity = domainEntitiesIndex.get(entityMetadata);
         if (entity == null) {
             // first time we are visiting this entity metadata so we need to build a domain entity
-            entity = new DomainEntity(entityMetadata.getName(), domainModelConfig.getEntitiesPrefix());
-            domainEntitiesIndex.put(entity.getName(), entity);
+            String schema = null;
+            if (entityMetadata instanceof JdbcTableMetadata) {
+                schema = ((JdbcTableMetadata) entityMetadata).getSchema();
+            }
+            String gmlEntityName = resolveGmlEntityName(entityMetadata, schema);
+            entity = new DomainEntity(
+                    entityMetadata.getName(), domainModelConfig.getEntitiesPrefix(), schema, gmlEntityName);
+            domainEntitiesIndex.put(entityMetadata, entity);
         } else {
             // we already have our entity
             return entity;
@@ -70,29 +81,37 @@ public final class DomainModelBuilder {
         return entity;
     }
 
-    private DomainEntity buildDomainEntity(String entityName, DomainRelation fromRelation) {
-        boolean isVisited = visitedEntities.contains(entityName);
-        visitedEntities.add(entityName);
-        // retrieve the metadata for our entity
-        EntityMetadata entityMetadata = dataStoreMetadata.getEntityMetadata(entityName);
-        if (entityMetadata == null) {
-            // looks like there is not metadata for our entity, we are done
-            throw new RuntimeException("Could not find metadata for entity '" + entityName + "'");
+    private DomainEntity buildDomainEntity(EntityMetadata entityMetadata, DomainRelation fromRelation) {
+        EntityMetadata resolvedMetadata = resolveEntityMetadata(entityMetadata);
+        if (resolvedMetadata == null) {
+            throw new RuntimeException("Could not find metadata for entity");
         }
+        // retrieve the metadata for our entity
         // let's try to retrieve the domain entity or create it if needed
-        DomainEntity entity = indexEntity(entityMetadata);
-        if (!isVisited) {
+        DomainEntity entity = indexEntity(resolvedMetadata);
+        if (initializedEntities.contains(resolvedMetadata) || visitedEntities.contains(resolvedMetadata)) {
+            return entity;
+        }
+        visitedEntities.add(resolvedMetadata);
+        try {
             // let's add the relations of our entity
-            entityMetadata.getRelations().forEach(relation -> {
-                if (fromRelation == null
-                        || !relation.participatesInRelation(
-                                fromRelation.getContainingEntity().getName())) {
+            resolvedMetadata.getRelations().forEach(relation -> {
+                if (fromRelation == null || !relationInvolvesEntity(relation, fromRelation.getContainingEntity())) {
+                    if (targetsVisitedEntity(entity, relation)) {
+                        if (LOGGER.isLoggable(java.util.logging.Level.FINER)) {
+                            LOGGER.log(
+                                    java.util.logging.Level.FINER,
+                                    "Skipping recursive relation from {0} to an already visited entity.",
+                                    entity.getName());
+                        }
+                        return;
+                    }
                     DomainRelation domainRelation = buildDomainRelation(entity, relation, fromRelation);
                     entity.add(domainRelation);
                 }
             });
             // let's add attributes of our entity, excluding all attributes that are foreign keys
-            entityMetadata.getAttributes().forEach(attribute -> {
+            resolvedMetadata.getAttributes().forEach(attribute -> {
                 // exclude external attributes references
                 if (!attribute.isExternalReference()) {
                     DomainEntitySimpleAttribute domainAttribute = buildDomainEntitySimpleAttribute(attribute);
@@ -103,8 +122,10 @@ public final class DomainModelBuilder {
                     entity.add(domainAttribute);
                 }
             });
+            initializedEntities.add(resolvedMetadata);
+        } finally {
+            visitedEntities.remove(resolvedMetadata);
         }
-        visitedEntities.remove(entityName);
         return entity;
     }
 
@@ -113,7 +134,7 @@ public final class DomainModelBuilder {
         // retrieve the source and targeted attributes of the relation
         AttributeMetadata sourceAttribute = relationMetadata.getSourceAttribute();
         AttributeMetadata destinationAttribute = relationMetadata.getDestinationAttribute();
-        if (destinationAttribute.getEntity().getName().equals(containingDomainEntity.getName())) {
+        if (isSameEntity(destinationAttribute.getEntity(), containingDomainEntity)) {
             // the containing entity was actually the destination, we need to swap the attributes
             sourceAttribute = relationMetadata.getDestinationAttribute();
             destinationAttribute = relationMetadata.getSourceAttribute();
@@ -124,11 +145,126 @@ public final class DomainModelBuilder {
         domainRelation.setContainingEntity(containingDomainEntity);
         domainRelation.setContainingKeyAttribute(buildRelationShipAttribute(sourceAttribute));
         // set the destination entity and attribute
-        DomainEntity destinationDomainEntity =
-                buildDomainEntity(destinationAttribute.getEntity().getName(), domainRelation);
+        DomainEntity destinationDomainEntity = buildDomainEntity(destinationAttribute.getEntity(), domainRelation);
         domainRelation.setDestinationEntity(destinationDomainEntity);
         domainRelation.setDestinationKeyAttribute(buildRelationShipAttribute(destinationAttribute));
         return domainRelation;
+    }
+
+    private EntityMetadata resolveEntityMetadata(EntityMetadata entityMetadata) {
+        if (entityMetadata == null) {
+            return null;
+        }
+        if (!(entityMetadata instanceof JdbcTableMetadata)) {
+            EntityMetadata candidate = dataStoreMetadata.getEntityMetadata(entityMetadata.getName());
+            return candidate != null ? candidate : entityMetadata;
+        }
+        JdbcTableMetadata jdbcEntity = (JdbcTableMetadata) entityMetadata;
+        for (EntityMetadata candidate : dataStoreMetadata.getDataStoreEntities()) {
+            if (candidate instanceof JdbcTableMetadata) {
+                JdbcTableMetadata jdbcCandidate = (JdbcTableMetadata) candidate;
+                if (matchesTable(jdbcEntity, jdbcCandidate)) {
+                    return jdbcCandidate;
+                }
+            } else if (candidate.getName().equals(jdbcEntity.getName())) {
+                return candidate;
+            }
+        }
+        return entityMetadata;
+    }
+
+    private boolean matchesTable(JdbcTableMetadata left, JdbcTableMetadata right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        if (!left.getName().equals(right.getName())) {
+            return false;
+        }
+        if (!Objects.equals(left.getSchema(), right.getSchema())) {
+            return false;
+        }
+        return Objects.equals(left.getCatalog(), right.getCatalog());
+    }
+
+    private Set<String> findDuplicatedEntityNames(DataStoreMetadata metadata) {
+        Set<String> duplicatedNames = new HashSet<>();
+        Map<String, Integer> counts = new HashMap<>();
+        if (metadata == null || metadata.getDataStoreEntities() == null) {
+            return duplicatedNames;
+        }
+        for (EntityMetadata entity : metadata.getDataStoreEntities()) {
+            if (entity == null || entity.getName() == null) {
+                continue;
+            }
+            counts.merge(entity.getName(), 1, Integer::sum);
+        }
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            if (entry.getValue() != null && entry.getValue() > 1) {
+                duplicatedNames.add(entry.getKey());
+            }
+        }
+        return duplicatedNames;
+    }
+
+    private String resolveGmlEntityName(EntityMetadata entityMetadata, String schema) {
+        String name = entityMetadata != null ? entityMetadata.getName() : null;
+        if (name == null) {
+            return null;
+        }
+        if (schema == null || schema.isEmpty()) {
+            return name;
+        }
+        if (!duplicatedEntityNames.contains(name)) {
+            return name;
+        }
+        return schema + "_" + name;
+    }
+
+    private boolean isSameEntity(EntityMetadata metadataEntity, DomainEntity domainEntity) {
+        if (metadataEntity == null || domainEntity == null) {
+            return false;
+        }
+        if (!Objects.equals(metadataEntity.getName(), domainEntity.getName())) {
+            return false;
+        }
+        if (metadataEntity instanceof JdbcTableMetadata) {
+            String metadataSchema = ((JdbcTableMetadata) metadataEntity).getSchema();
+            return Objects.equals(metadataSchema, domainEntity.getSchema());
+        }
+        return true;
+    }
+
+    private boolean relationInvolvesEntity(RelationMetadata relation, DomainEntity entity) {
+        if (relation == null || entity == null) {
+            return false;
+        }
+        if (isSameEntity(relation.getSourceAttribute().getEntity(), entity)) {
+            return true;
+        }
+        return isSameEntity(relation.getDestinationAttribute().getEntity(), entity);
+    }
+
+    private boolean targetsVisitedEntity(DomainEntity containingEntity, RelationMetadata relation) {
+        if (containingEntity == null || relation == null) {
+            return false;
+        }
+        EntityMetadata sourceEntity = relation.getSourceAttribute() != null
+                ? relation.getSourceAttribute().getEntity()
+                : null;
+        EntityMetadata destinationEntity = relation.getDestinationAttribute() != null
+                ? relation.getDestinationAttribute().getEntity()
+                : null;
+        EntityMetadata targetEntity = null;
+        if (isSameEntity(sourceEntity, containingEntity)) {
+            targetEntity = destinationEntity;
+        } else if (isSameEntity(destinationEntity, containingEntity)) {
+            targetEntity = sourceEntity;
+        }
+        if (targetEntity == null) {
+            return false;
+        }
+        EntityMetadata resolvedTarget = resolveEntityMetadata(targetEntity);
+        return resolvedTarget != null && visitedEntities.contains(resolvedTarget);
     }
 
     /**
@@ -140,13 +276,8 @@ public final class DomainModelBuilder {
     private DomainEntitySimpleAttribute buildDomainEntitySimpleAttribute(AttributeMetadata attributeMetadata) {
         DomainEntitySimpleAttribute domainAttribute = new DomainEntitySimpleAttribute();
         domainAttribute.setName(attributeMetadata.getName());
-        String attribType = attributeMetadata.getType().toLowerCase();
+        String attribType = normalizeTypeName(attributeMetadata.getType());
         domainAttribute.setIdentifier(attributeMetadata.isIdentifier());
-        // clean composed types to get only the type. ie. "public"."geometry" -> geometry
-        String[] composedAttribType = attribType.split(Pattern.quote("."));
-        if (composedAttribType.length == 2) {
-            attribType = composedAttribType[1].substring(1, composedAttribType[1].length() - 1);
-        }
         DomainAttributeType domainAttributeType = getDomainAttributeType(attribType);
         if (domainAttributeType == null) {
             LOGGER.warning(() -> "Attribute type '%s' is unsupported for attribute '%s'."
@@ -157,6 +288,46 @@ public final class DomainModelBuilder {
         }
 
         return domainAttribute;
+    }
+
+    /**
+     * Normalizes vendor-specific SQL type labels to a stable base type token consumed by
+     * {@link #getDomainAttributeType(String)}.
+     */
+    private String normalizeTypeName(String rawType) {
+        if (rawType == null) {
+            return null;
+        }
+        String normalized = rawType.trim().toLowerCase(Locale.ROOT);
+        int dotIndex = normalized.lastIndexOf('.');
+        if (dotIndex >= 0 && dotIndex < normalized.length() - 1) {
+            normalized = normalized.substring(dotIndex + 1);
+        }
+        normalized = normalized.replace("\"", "");
+        int paramsStart = normalized.indexOf('(');
+        if (paramsStart >= 0) {
+            normalized = normalized.substring(0, paramsStart).trim();
+        }
+        normalized = normalized.replaceAll("\\s+", " ").trim();
+        switch (normalized) {
+            case "character varying":
+                return "varchar";
+            case "character":
+                return "bpchar";
+            case "double precision":
+                return "float8";
+            case "real":
+                return "float4";
+            case "timestamp with time zone":
+                return "timestamptz";
+            case "timestamp without time zone":
+                return "timestamp";
+            case "time with time zone":
+            case "time without time zone":
+                return "time";
+            default:
+                return normalized;
+        }
     }
 
     /**
@@ -196,7 +367,9 @@ public final class DomainModelBuilder {
                 return DomainAttributeType.NUMBER;
             case "serial":
             case "smallint":
+            case "int2":
             case "int4":
+            case "integer":
                 return DomainAttributeType.INT;
             case "bigint":
             case "int8":
@@ -205,6 +378,7 @@ public final class DomainModelBuilder {
             case "text":
             case "varchar":
             case "uuid":
+            case "bpchar":
                 return DomainAttributeType.TEXT;
             case "time":
             case "date":

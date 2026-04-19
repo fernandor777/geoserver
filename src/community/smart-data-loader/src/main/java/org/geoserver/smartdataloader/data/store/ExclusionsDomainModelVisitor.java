@@ -4,12 +4,13 @@
  */
 package org.geoserver.smartdataloader.data.store;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.geoserver.smartdataloader.domain.DomainModelBuilder;
 import org.geoserver.smartdataloader.domain.DomainModelConfig;
-import org.geoserver.smartdataloader.domain.DomainModelVisitorImpl;
+import org.geoserver.smartdataloader.domain.IndexedDomainModelVisitorImpl;
 import org.geoserver.smartdataloader.domain.entities.DomainEntity;
 import org.geoserver.smartdataloader.domain.entities.DomainEntitySimpleAttribute;
 import org.geoserver.smartdataloader.domain.entities.DomainModel;
@@ -19,11 +20,11 @@ import org.geoserver.smartdataloader.domain.entities.DomainRelation;
  * DomainModelVisitor that based on list of exclusions tails a domainmodel and returns a new one with removed
  * domainmodel objects.
  */
-public class ExclusionsDomainModelVisitor extends DomainModelVisitorImpl {
+public class ExclusionsDomainModelVisitor extends IndexedDomainModelVisitorImpl {
 
     private List<String> exclusions;
     private DomainEntity currentEntity;
-    private Map<String, DomainRelation> relationsToRemove = new HashMap<>();
+    private List<DomainRelation> relationsToRemove = new ArrayList<>();
     private Map<DomainEntitySimpleAttribute, DomainEntity> attributesToRemove = new HashMap<>();
 
     /**
@@ -54,9 +55,8 @@ public class ExclusionsDomainModelVisitor extends DomainModelVisitorImpl {
             DomainEntity entity = attributesToRemove.get(key);
             entity.getAttributes().remove(key);
         }
-        Map<String, DomainRelation> relationsToRemove = dmv.relationsToRemove;
-        for (String key : relationsToRemove.keySet()) {
-            DomainRelation relation = relationsToRemove.get(key);
+        List<DomainRelation> relationsToRemove = dmv.relationsToRemove;
+        for (DomainRelation relation : relationsToRemove) {
             relation.getContainingEntity().getRelations().remove(relation);
         }
         return clonedDomainModel;
@@ -77,11 +77,13 @@ public class ExclusionsDomainModelVisitor extends DomainModelVisitorImpl {
 
     @Override
     public void visitDomainRootEntity(DomainEntity entity) {
+        super.visitDomainRootEntity(entity);
         currentEntity = entity;
     }
 
     @Override
     public void visitDomainChainedEntity(DomainEntity entity) {
+        super.visitDomainChainedEntity(entity);
         currentEntity = entity;
     }
 
@@ -102,7 +104,7 @@ public class ExclusionsDomainModelVisitor extends DomainModelVisitorImpl {
         // if relation is in exclusion list, remove it from cloneEntity and add entity to list of
         // removed entities
         if (exclusions.contains(domainObjectName)) {
-            relationsToRemove.put(domainObjectName, relation);
+            relationsToRemove.add(relation);
         }
     }
 }

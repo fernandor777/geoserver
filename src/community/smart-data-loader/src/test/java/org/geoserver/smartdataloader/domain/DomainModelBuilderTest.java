@@ -3,7 +3,7 @@ package org.geoserver.smartdataloader.domain;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import java.sql.DatabaseMetaData;
+import java.sql.Connection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,8 +29,8 @@ public abstract class DomainModelBuilderTest extends AbstractJDBCSmartDataLoader
 
     @Test
     public void testDomainModelBuilderWithRootEntityFailure() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = this.dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_failure");
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);
@@ -46,8 +46,8 @@ public abstract class DomainModelBuilderTest extends AbstractJDBCSmartDataLoader
 
     @Test
     public void testDomainModelBuilderWithStationsAsRoot() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = this.dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_stations");
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);
@@ -94,8 +94,8 @@ public abstract class DomainModelBuilderTest extends AbstractJDBCSmartDataLoader
 
     @Test
     public void testDomainModelBuilderWithParametersAsRoot() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = this.dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_parameters");
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);
@@ -132,8 +132,8 @@ public abstract class DomainModelBuilderTest extends AbstractJDBCSmartDataLoader
 
     @Test
     public void testDomainModelBuilderWithObservationsAsRoot() throws Exception {
-        DatabaseMetaData metaData = this.dataSource.getConnection().getMetaData();
-        DataStoreMetadata dsm = this.getDataStoreMetadata(metaData);
+        Connection connection = this.dataSource.getConnection();
+        DataStoreMetadata dsm = this.getDataStoreMetadata(connection);
         DomainModelConfig dmc = new DomainModelConfig();
         dmc.setRootEntityName("meteo_observations");
         DomainModelBuilder dmb = new DomainModelBuilder(dsm, dmc);
